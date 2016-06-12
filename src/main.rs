@@ -424,6 +424,7 @@ impl Error for ErrorWithContext {
 }
 
 quick_error! {
+    #[cfg_attr(feature="clippy", allow(enum_variant_names))]
     #[derive(Debug)]
     enum PocketSetupError {
         MissingConsumerKey {

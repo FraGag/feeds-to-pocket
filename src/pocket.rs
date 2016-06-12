@@ -89,13 +89,13 @@ struct XAccept(pub Mime);
 
 impl Deref for XAccept {
     type Target = Mime;
-    fn deref<'a>(&'a self) -> &'a Mime {
+    fn deref(&self) -> &Mime {
         &self.0
     }
 }
 
 impl DerefMut for XAccept {
-    fn deref_mut<'a>(&'a mut self) -> &'a mut Mime {
+    fn deref_mut(&mut self) -> &mut Mime {
         &mut self.0
     }
 }
@@ -106,7 +106,7 @@ impl Header for XAccept {
     }
 
     fn parse_header(raw: &[Vec<u8>]) -> Result<XAccept, HttpError> {
-        from_one_raw_str(raw).map(|mime| XAccept(mime))
+        from_one_raw_str(raw).map(XAccept)
     }
 }
 
@@ -127,7 +127,7 @@ impl Header for XError {
     }
 
     fn parse_header(raw: &[Vec<u8>]) -> Result<XError, HttpError> {
-        from_one_raw_str(raw).map(|error| XError(error))
+        from_one_raw_str(raw).map(XError)
     }
 }
 
@@ -143,7 +143,7 @@ impl Header for XErrorCode {
     }
 
     fn parse_header(raw: &[Vec<u8>]) -> Result<XErrorCode, HttpError> {
-        from_one_raw_str(raw).map(|code| XErrorCode(code))
+        from_one_raw_str(raw).map(XErrorCode)
     }
 }
 
@@ -224,8 +224,7 @@ impl Pocket {
                     let mut out = String::new();
                     r.read_to_string(&mut out).map_err(From::from).map(|_| out)
                 },
-                Some(code) => Err(PocketError::Proto(code, r.headers.get::<XError>().map(|v| &*v.0)
-                                                     .unwrap_or("unknown protocol error").to_string())),
+                Some(code) => Err(PocketError::Proto(code, r.headers.get::<XError>().map_or("unknown protocol error", |v| &*v.0).to_string())),
             })
     }
 
@@ -271,11 +270,11 @@ impl Pocket {
     pub fn add<T: IntoUrl>(&mut self, url: T, title: Option<&str>, tags: Option<&str>, tweet_id: Option<&str>) -> PocketResult<()> {
         let request = PocketAddRequest {
             consumer_key: &self.consumer_key,
-            access_token: &self.access_token.as_ref().unwrap(),
+            access_token: self.access_token.as_ref().unwrap(),
             url: &url.into_url().unwrap(),
-            title: title.map(|v| v.clone()),
-            tags: tags.map(|v| v.clone()),
-            tweet_id: tweet_id.map(|v| v.clone())
+            title: title,
+            tags: tags,
+            tweet_id: tweet_id,
         };
 
         self.request("https://getpocket.com/v3/add", &request).map(|_| ())
