@@ -18,7 +18,7 @@ mod pocket;
 
 use std::error::Error;
 use std::fmt::{self, Display};
-use std::fs::{self, File};
+use std::fs::{self, File, OpenOptions};
 use std::io::{self, Read, Write};
 use std::path::Path;
 use std::process;
@@ -35,6 +35,8 @@ fn main() {
             .required(true)
             .takes_value(true)
             .index(1))
+        .subcommand(SubCommand::with_name(subcommands::init::NAME)
+            .about("Creates an empty configuration file (if it doesn't already exist)."))
         .subcommand(SubCommand::with_name(subcommands::set_consumer_key::NAME)
             .about("Sets the consumer key in the configuration file.")
             .arg(Arg::with_name(subcommands::set_consumer_key::args::KEY)
@@ -79,6 +81,10 @@ mod args {
 }
 
 mod subcommands {
+    pub mod init {
+        pub const NAME: &'static str = "init";
+    }
+
     pub mod set_consumer_key {
         pub const NAME: &'static str = "set-consumer-key";
 
@@ -102,18 +108,22 @@ mod subcommands {
 }
 
 fn run(args: &ArgMatches) -> Result<(), ErrorWithContext> {
-    let mut config = try!(load_config(args));
+    if args.subcommand_name() == Some(subcommands::init::NAME) {
+        init(args)
+    } else {
+        let mut config = try!(load_config(args));
 
-    // Dispatch based on the subcommand
-    try!(match args.subcommand() {
-        ("", _) => sync(&mut config),
-        (subcommands::set_consumer_key::NAME, Some(args)) => Ok(set_consumer_key(&mut config, &args)),
-        (subcommands::login::NAME, _) => login(&mut config),
-        (subcommands::add::NAME, Some(args)) => add(&mut config, &args),
-        (_, _) => unreachable!(),
-    });
+        // Dispatch based on the subcommand
+        try!(match args.subcommand() {
+            ("", _) => sync(&mut config),
+            (subcommands::set_consumer_key::NAME, Some(args)) => Ok(set_consumer_key(&mut config, &args)),
+            (subcommands::login::NAME, _) => login(&mut config),
+            (subcommands::add::NAME, Some(args)) => add(&mut config, &args),
+            (_, _) => unreachable!(),
+        });
 
-    save_config(&config, args)
+        save_config(&config, args)
+    }
 }
 
 macro_rules! try_with_context {
@@ -190,6 +200,21 @@ fn save_config(config: &Configuration, args: &ArgMatches) -> Result<(), ErrorWit
     // Delete the renamed original configuration file.
     try_with_context!(fs::remove_file(old_config_file_name),
         format!("failed to remove file {}", old_config_file_name.to_string_lossy()));
+
+    Ok(())
+}
+
+fn init(args: &ArgMatches) -> Result<(), ErrorWithContext> {
+    let config_file_name = args.value_of_os(args::CONFIG).unwrap();
+
+    // Only write a configuration file if it doesn't exist yet.
+    let mut config_file = try_with_context!(
+        OpenOptions::new().write(true).create_new(true).open(config_file_name),
+        format!("failed to create file {}", config_file_name.to_string_lossy()));
+
+    let config = Configuration::default();
+    try_with_context!(serde_yaml::to_writer(&mut config_file, &config),
+        format!("failed to save configuration to {}", config_file_name.to_string_lossy()));
 
     Ok(())
 }
@@ -373,7 +398,7 @@ fn trim(s: String) -> String {
     }.unwrap_or(s)
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Default, Deserialize, Serialize)]
 struct Configuration {
     #[serde(skip_serializing_if="Option::is_none")]
     consumer_key: Option<String>,
