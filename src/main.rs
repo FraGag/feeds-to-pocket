@@ -30,7 +30,9 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{self, Read, Write};
 use std::path::Path;
 use std::process;
+use std::str::FromStr;
 use clap::{App, Arg, ArgMatches, SubCommand};
+use hyper::header::{ETag, EntityTag, HttpDate, IfModifiedSince, IfNoneMatch, LastModified, UserAgent};
 use pocket::Pocket;
 
 fn main() {
@@ -290,6 +292,8 @@ fn add(config: &mut Configuration, args: &ArgMatches) -> Result<(), ErrorWithCon
     config.feeds.push(Feed {
         url: String::from(feed_url),
         processed_entries: vec![],
+        last_modified: None,
+        last_e_tag: None,
     });
 
     let feed = config.feeds.last_mut().unwrap();
@@ -315,80 +319,122 @@ fn get_authenticated_pocket(config: &Configuration) -> Result<Pocket, PocketSetu
 
 fn process_feed(feed: &mut Feed, mut pocket: Option<&mut Pocket>) -> Result<(), ErrorWithContext> {
     println!("downloading {}", feed.url);
-    let feed_body = try_with_context!(fetch(feed),
+    let feed_response = try_with_context!(fetch(feed),
         format!("failed to download feed at {url}", url=feed.url));
 
-    let parsed_feed = try_with_context!(feed_body.parse::<syndication::Feed>(),
-        format!("failed to parse feed at {url} as either RSS or Atom", url=feed.url));
+    // Do nothing if we received a 304 Not Modified response.
+    if let FeedResponse::Success { body, last_modified, e_tag } = feed_response {
+        let parsed_feed = try_with_context!(body.parse::<syndication::Feed>(),
+            format!("failed to parse feed at {url} as either RSS or Atom", url=feed.url));
 
-    let (mut rss_entries, mut atom_entries);
-    let entries: &mut Iterator<Item=String> = match parsed_feed {
-        syndication::Feed::RSS(rss) => {
-            rss_entries = rss.items.into_iter().rev().flat_map(|item| item.link);
-            &mut rss_entries
-        }
-        syndication::Feed::Atom(atom) => {
-            atom_entries = atom.entries.into_iter().rev().flat_map(|entry| entry.links).map(|link| link.href);
-            &mut atom_entries
-        }
-    };
-
-    for entry_url in entries {
-        // The rss and atom_syndication libraries
-        // don't trim the values extracted from the XML files.
-        let entry_url = trim(entry_url);
-
-        // Ignore entries we've processed previously.
-        if !feed.processed_entries.iter().rev().any(|x| x == &entry_url) {
-            let is_processed =
-                if let Some(ref mut pocket) = pocket {
-                    // Push the entry to Pocket.
-                    // Only consider the entry processed if the push succeeded.
-                    // That means that if it failed, we'll try again next time.
-                    println!("pushing {} to Pocket", entry_url);
-                    let push_result = pocket.push(&entry_url);
-                    match push_result {
-                        Ok(_) => true,
-                        Err(error) => {
-                            println!("error while adding URL {url} to Pocket:\n  {error}",
-                                url=entry_url, error=Indented(&error));
-                            false
-                        }
-                    }
-                } else {
-                    // If `pocket` is None,
-                    // then we just want to mark the current feed entries as processed,
-                    // on the assumption that the user has read them already.
-                    true
-                };
-
-            if is_processed {
-                // Remember that we've processed this entry
-                // so we don't try to send it to Pocket next time.
-                feed.processed_entries.push(entry_url);
+        let (mut rss_entries, mut atom_entries);
+        let entries: &mut Iterator<Item=String> = match parsed_feed {
+            syndication::Feed::RSS(rss) => {
+                rss_entries = rss.items.into_iter().rev().flat_map(|item| item.link);
+                &mut rss_entries
             }
+            syndication::Feed::Atom(atom) => {
+                atom_entries = atom.entries.into_iter().rev().flat_map(|entry| entry.links).map(|link| link.href);
+                &mut atom_entries
+            }
+        };
+
+        let mut all_processed_successfully = true;
+        for entry_url in entries {
+            // The rss and atom_syndication libraries
+            // don't trim the values extracted from the XML files.
+            let entry_url = trim(entry_url);
+
+            // Ignore entries we've processed previously.
+            if !feed.processed_entries.iter().rev().any(|x| x == &entry_url) {
+                let is_processed =
+                    if let Some(ref mut pocket) = pocket {
+                        // Push the entry to Pocket.
+                        // Only consider the entry processed if the push succeeded.
+                        // That means that if it failed, we'll try again next time.
+                        println!("pushing {} to Pocket", entry_url);
+                        let push_result = pocket.push(&entry_url);
+                        match push_result {
+                            Ok(_) => true,
+                            Err(error) => {
+                                println!("error while adding URL {url} to Pocket:\n  {error}",
+                                    url=entry_url, error=Indented(&error));
+                                false
+                            }
+                        }
+                    } else {
+                        // If `pocket` is None,
+                        // then we just want to mark the current feed entries as processed,
+                        // on the assumption that the user has read them already.
+                        true
+                    };
+
+                if is_processed {
+                    // Remember that we've processed this entry
+                    // so we don't try to send it to Pocket next time.
+                    feed.processed_entries.push(entry_url);
+                } else {
+                    all_processed_successfully = false;
+                }
+            }
+        }
+
+        // Don't update the last modified and last ETag
+        // if any push to Pocket failed
+        // so we can try again next time.
+        if all_processed_successfully {
+            feed.last_modified = last_modified.map(|v| format!("{}", v));
+            feed.last_e_tag = e_tag.map(|v| format!("{}", v));
         }
     }
 
     Ok(())
 }
 
-fn fetch(feed: &Feed) -> Result<String, ErrorWithContext> {
+fn fetch(feed: &Feed) -> Result<FeedResponse, ErrorWithContext> {
     let mut client = hyper::Client::new();
     client.set_redirect_policy(hyper::client::RedirectPolicy::FollowAll);
-    let mut response = try_with_context!(client.get(&feed.url)
-        .header(hyper::header::UserAgent(String::from(concat!("feeds-to-pocket/", env!("CARGO_PKG_VERSION")))))
-        .send(),
-        "failed to send request");
-    if !response.status.is_success() {
-        try_with_context!(Err(UnacceptableHttpStatus::UnacceptableHttpStatus(response.status)),
-            format!("the HTTP request to <{}> didn't return a success status", feed.url));
+
+    let mut request = client.get(&feed.url)
+        .header(UserAgent(String::from(concat!("feeds-to-pocket/", env!("CARGO_PKG_VERSION")))));
+
+    // Add an If-Modified-Since header if we have a Last-Modified date.
+    if let Some(ref last_modified) = feed.last_modified {
+        if let Ok(last_modified) = HttpDate::from_str(last_modified) {
+            request = request.header(IfModifiedSince(last_modified));
+        }
     }
 
-    let mut body = String::new();
-    try_with_context!(response.read_to_string(&mut body),
-        "failed to read response");
-    Ok(body)
+    // Add an If-None-Match header if we have an ETag.
+    if let Some(ref e_tag) = feed.last_e_tag {
+        if let Ok(e_tag) = EntityTag::from_str(e_tag) {
+            request = request.header(IfNoneMatch::Items(vec![e_tag]));
+        }
+    }
+
+    let mut response = try_with_context!(request.send(),
+        "failed to send request");
+    if response.status == hyper::status::StatusCode::NotModified {
+        Ok(FeedResponse::NotModified)
+    } else {
+        if !response.status.is_success() {
+            try_with_context!(Err(UnacceptableHttpStatus::UnacceptableHttpStatus(response.status)),
+                format!("the HTTP request to <{}> didn't return a success status", feed.url));
+        }
+
+        let last_modified = response.headers.get::<LastModified>().cloned();
+        let e_tag = response.headers.get::<ETag>().cloned();
+
+        let mut body = String::new();
+        try_with_context!(response.read_to_string(&mut body),
+            "failed to read response");
+
+        Ok(FeedResponse::Success {
+            body: body,
+            last_modified: last_modified,
+            e_tag: e_tag,
+        })
+    }
 }
 
 fn trim(s: String) -> String {
@@ -423,6 +469,19 @@ struct Feed {
     #[serde(skip_serializing_if="Vec::is_empty")]
     #[serde(default)]
     processed_entries: Vec<String>,
+    #[serde(skip_serializing_if="Option::is_none")]
+    last_modified: Option<String>,
+    #[serde(skip_serializing_if="Option::is_none")]
+    last_e_tag: Option<String>,
+}
+
+enum FeedResponse {
+    Success {
+        body: String,
+        last_modified: Option<LastModified>,
+        e_tag: Option<ETag>,
+    },
+    NotModified,
 }
 
 #[derive(Debug)]
