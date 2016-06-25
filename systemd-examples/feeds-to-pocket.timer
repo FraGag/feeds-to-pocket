@@ -1,0 +1,6 @@
+[Unit]
+Description=Timer for Feeds to Pocket
+
+[Timer]
+OnStartupSec=1m
+OnUnitActiveSec=1h
