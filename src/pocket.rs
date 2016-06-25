@@ -1,5 +1,11 @@
-// Copyright (c) 2015 The rust-pocket Developers
-// Copyright (c) 2016 Francis Gagné
+// Copyright 2015 The rust-pocket Developers
+// Copyright 2016 Francis Gagné
+//
+// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
+// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.
 
 // The code for this module
 // is derived from the rust-pocket library,
