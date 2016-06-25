@@ -66,13 +66,17 @@ fn main() {
                     an access token is saved in the configuration file, \
                     which will be used to queue up entries in your Pocket list."))
         .subcommand(SubCommand::with_name(subcommands::add::NAME)
-            .about("Adds a feed to your feeds configuration.")
+            .about("Adds a feed to your feeds configuration or updates an existing feed in your feeds configuration.")
             .arg(Arg::with_name(subcommands::add::args::UNREAD)
                 .long("--unread")
                 .help("Consider all the entries in the feed to be unread. \
                        All entries will be sent to Pocket immediately. \
                        By default, all the entries present when the feed is added \
                        are considered read and are not sent to Pocket."))
+            .arg(Arg::with_name(subcommands::add::args::TAGS)
+                .long("--tags")
+                .help("A comma-separated list of tags to attach to the URLs sent to Pocket.")
+                .takes_value(true))
             .arg(Arg::with_name(subcommands::add::args::FEED_URL)
                 .help("The URL of the feed to add.")
                 .required(true)))
@@ -112,6 +116,7 @@ mod subcommands {
 
         pub mod args {
             pub const UNREAD: &'static str = "unread";
+            pub const TAGS: &'static str = "tags";
             pub const FEED_URL: &'static str = "feed url";
         }
     }
@@ -276,6 +281,18 @@ fn sync(config: &mut Configuration) -> Result<(), ErrorWithContext> {
 }
 
 fn add(config: &mut Configuration, args: &ArgMatches) -> Result<(), ErrorWithContext> {
+    fn apply_tags(feed: &mut Feed, args: &ArgMatches) {
+        if let Some(tags) = args.value_of(subcommands::add::args::TAGS) {
+            feed.tags = tags.to_owned();
+        }
+    }
+
+    let feed_url = args.value_of(subcommands::add::args::FEED_URL).unwrap();
+    if let Some(feed) = config.feeds.iter_mut().find(|feed| feed.url == feed_url) {
+        apply_tags(feed, args);
+        return Ok(());
+    }
+
     let send_to_pocket = args.is_present(subcommands::add::args::UNREAD);
     let mut pocket = if send_to_pocket {
         Some(try_with_context!(get_authenticated_pocket(config), "unable to add feed"))
@@ -283,18 +300,15 @@ fn add(config: &mut Configuration, args: &ArgMatches) -> Result<(), ErrorWithCon
         None
     };
 
-    let feed_url = args.value_of(subcommands::add::args::FEED_URL).unwrap();
-    if config.feeds.iter().any(|feed| feed.url == feed_url) {
-        println!("This feed is already in your configuration!");
-        return Ok(());
-    }
-
-    config.feeds.push(Feed {
+    let mut feed = Feed {
         url: String::from(feed_url),
+        tags: String::new(),
         processed_entries: vec![],
         last_modified: None,
         last_e_tag: None,
-    });
+    };
+    apply_tags(&mut feed, args);
+    config.feeds.push(feed);
 
     let feed = config.feeds.last_mut().unwrap();
 
@@ -353,7 +367,8 @@ fn process_feed(feed: &mut Feed, mut pocket: Option<&mut Pocket>) -> Result<(), 
                         // Only consider the entry processed if the push succeeded.
                         // That means that if it failed, we'll try again next time.
                         println!("pushing {} to Pocket", entry_url);
-                        let push_result = pocket.push(&entry_url);
+                        let tags = if feed.tags.is_empty() { None } else { Some(&*feed.tags) };
+                        let push_result = pocket.add(&entry_url, None, tags, None);
                         match push_result {
                             Ok(_) => true,
                             Err(error) => {
@@ -466,6 +481,9 @@ struct Configuration {
 #[derive(Deserialize, Serialize)]
 struct Feed {
     url: String,
+    #[serde(skip_serializing_if="str::is_empty")]
+    #[serde(default)]
+    tags: String,
     #[serde(skip_serializing_if="Vec::is_empty")]
     #[serde(default)]
     processed_entries: Vec<String>,

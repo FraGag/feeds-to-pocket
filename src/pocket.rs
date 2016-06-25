@@ -285,11 +285,6 @@ impl Pocket {
 
         self.request("https://getpocket.com/v3/add", &request).map(|_| ())
     }
-
-    #[inline]
-    pub fn push<T: IntoUrl>(&mut self, url: T) -> PocketResult<()> {
-        self.add(url, None, None, None)
-    }
 }
 
 trait DecodeExt {
