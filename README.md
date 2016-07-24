@@ -121,6 +121,22 @@ Once an entry has been sent to Pocket,
 <b>Feeds to Pocket</b> marks it as "processed"
 and will not send it again.
 
+### Assigning tags to feeds
+
+You can assign tags to feeds.
+When a new entry is pushed to Pocket,
+it will be assigned the tags that were set
+on the feed the entry comes from.
+
+To do this, pass the `--tags` option
+to the `add` subcommand.
+You can do this while adding a new feed
+or for an existing feed
+(then it will *replace* the list of tags for that feed).
+The `--tags` option is followed by a comma-separated list of tags.
+
+    $ feeds-to-pocket ~/feeds-to-pocket.yaml add --tags comics,xkcd https://xkcd.com/atom.xml
+
 ### Scheduling
 
 <b>Feeds to Pocket</b> doesn't have any built-in scheduling mechanisms.
