@@ -28,9 +28,6 @@ go to the [Rust][rust] home page,
 then download and install Rust for your platform,
 which will install the Rust compiler and Cargo.
 
-**Note:** <b>Feeds to Pocket</b>
-currently requires a *nightly* compiler.
-
 ## Usage
 
 ### Installation
