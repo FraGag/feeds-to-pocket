@@ -9,6 +9,8 @@
 #![cfg_attr(feature = "serde_macros", feature(custom_derive, plugin))]
 #![cfg_attr(feature = "serde_macros", plugin(serde_macros))]
 
+#![allow(unknown_lints)]
+
 #[macro_use]
 extern crate clap;
 extern crate hyper;
