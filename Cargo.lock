@@ -2,14 +2,14 @@
 name = "feeds-to-pocket"
 version = "0.1.2-pre"
 dependencies = [
- "clap 2.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "clap 2.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "hyper 0.9.10 (registry+https://github.com/rust-lang/crates.io-index)",
- "mime 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mime 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "quick-error 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde 0.7.14 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde_codegen 0.7.14 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 0.7.15 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_codegen 0.7.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 0.7.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde_macros 0.7.14 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_macros 0.7.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_yaml 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "syndication 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "url 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -23,15 +23,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "ansi_term"
-version = "0.7.5"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "aster"
-version = "0.21.1"
+version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "syntex_syntax 0.38.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "syntex_syntax 0.39.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -54,11 +54,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "clap"
-version = "2.9.3"
+version = "2.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "ansi_term 0.7.5 (registry+https://github.com/rust-lang/crates.io-index)",
- "bitflags 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ansi_term 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "bitflags 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "strsim 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "term_size 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -113,7 +113,7 @@ dependencies = [
  "httparse 1.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "language-tags 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "mime 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mime 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "num_cpus 0.2.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "openssl 0.7.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "openssl-verify 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -185,7 +185,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "mime"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "log 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -257,35 +257,35 @@ name = "pnacl-build-helper"
 version = "1.4.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "tempdir 0.3.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tempdir 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "quasi"
-version = "0.15.0"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "syntex_errors 0.38.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "syntex_syntax 0.38.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "syntex_errors 0.39.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "syntex_syntax 0.39.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "quasi_codegen"
-version = "0.15.0"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "aster 0.21.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "syntex 0.38.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "syntex_errors 0.38.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "syntex_syntax 0.38.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "aster 0.22.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "syntex 0.39.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "syntex_errors 0.39.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "syntex_syntax 0.39.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "quasi_macros"
-version = "0.15.0"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "quasi_codegen 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "quasi_codegen 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -329,30 +329,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "serde"
-version = "0.7.14"
+version = "0.7.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "serde_codegen"
-version = "0.7.14"
+version = "0.7.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "aster 0.21.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "quasi 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "quasi_codegen 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "quasi_macros 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde_codegen_internals 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "syntex 0.38.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "syntex_syntax 0.38.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "aster 0.22.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "quasi 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "quasi_codegen 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "quasi_macros 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_codegen_internals 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "syntex 0.39.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "syntex_syntax 0.39.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "serde_codegen_internals"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "syntex_errors 0.38.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "syntex_syntax 0.38.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "syntex_errors 0.39.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "syntex_syntax 0.39.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -362,15 +362,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "itoa 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "num-traits 0.1.34 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde 0.7.14 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 0.7.15 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "serde_macros"
-version = "0.7.14"
+version = "0.7.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "serde_codegen 0.7.14 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_codegen 0.7.15 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -378,7 +378,7 @@ name = "serde_yaml"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "serde 0.7.14 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 0.7.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "yaml-rust 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -407,29 +407,29 @@ dependencies = [
 
 [[package]]
 name = "syntex"
-version = "0.38.0"
+version = "0.39.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "syntex_errors 0.38.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "syntex_syntax 0.38.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "syntex_errors 0.39.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "syntex_syntax 0.39.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "syntex_errors"
-version = "0.38.0"
+version = "0.39.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "libc 0.2.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustc-serialize 0.3.19 (registry+https://github.com/rust-lang/crates.io-index)",
- "syntex_pos 0.38.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "syntex_pos 0.39.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "term 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "unicode-xid 0.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "syntex_pos"
-version = "0.38.0"
+version = "0.39.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "rustc-serialize 0.3.19 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -437,22 +437,22 @@ dependencies = [
 
 [[package]]
 name = "syntex_syntax"
-version = "0.38.0"
+version = "0.39.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "bitflags 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustc-serialize 0.3.19 (registry+https://github.com/rust-lang/crates.io-index)",
- "syntex_errors 0.38.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "syntex_pos 0.38.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "syntex_errors 0.39.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "syntex_pos 0.39.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "term 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "unicode-xid 0.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "tempdir"
-version = "0.3.4"
+version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "rand 0.3.14 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -533,7 +533,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "idna 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "matches 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde 0.7.14 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 0.7.15 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
