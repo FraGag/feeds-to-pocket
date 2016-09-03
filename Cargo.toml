@@ -11,20 +11,20 @@ build = "build.rs"
 
 [features]
 default = ["serde_codegen"]
-nightly = ["serde_macros"]
+unstable = ["serde_macros"]
 
 [dependencies]
 clap = "2.5"
 hyper = "0.9"
 mime = "0.2"
 quick-error = "1.0"
-serde = "0.7"
-serde_json = "0.7"
-serde_macros = { version = "0.7", optional = true }
-serde_yaml = "0.2"
+serde = "0.8"
+serde_json = "0.8"
+serde_macros = { version = "0.8", optional = true }
+serde_yaml = "0.4"
 syndication = "0.2"
-url = { version = "1.1", features = ["serde"] }
+url = { version = "1.2", features = ["serde"] }
 yaml-rust = "0.3"
 
 [build-dependencies]
-serde_codegen = { version = "0.7", optional = true }
+serde_codegen = { version = "0.8", optional = true }
