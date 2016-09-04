@@ -4,8 +4,8 @@ If you would like to use systemd as a scheduler for <b>Feeds to Pocket</b>,
 you can use the unit files in this directory as a basis.
 You will most likely want to set this up for your user instance,
 rather than for the system instance,
-so copy `feeds-to-pocket.service` to `~/.config/systemd/user`
-and copy `feeds-to-pocket.timer` to `~/.config/systemd/user/timers.target.wants`.
+so copy `feeds-to-pocket.service` and `feeds-to-pocket.timer`
+to `~/.config/systemd/user`.
 
 In `feeds-to-pocket.service`,
 edit the `ExecStart` option in the `[Service]` section
@@ -18,7 +18,15 @@ The provided timer will run 1 minute after login
 and every hour after that.
 
 Once you've configured the unit files to your liking,
-start the timer with the following command:
+enable the timer with the following command:
+
+    $ systemctl --user enable feeds-to-pocket.timer
+
+When the timer is enabled,
+it will be started automatically when you log in.
+
+You can start the timer without having to log out and log back in
+with the following command:
 
     $ systemctl --user start feeds-to-pocket.timer
 
