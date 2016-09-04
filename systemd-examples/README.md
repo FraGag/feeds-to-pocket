@@ -2,7 +2,7 @@
 
 If you would like to use systemd as a scheduler for <b>Feeds to Pocket</b>,
 you can use the unit files in this directory as a basis.
-You will most likely want to setup this for your user instance,
+You will most likely want to set this up for your user instance,
 rather than for the system instance,
 so copy `feeds-to-pocket.service` to `~/.config/systemd/user`
 and copy `feeds-to-pocket.timer` to `~/.config/systemd/user/timers.target.wants`.
@@ -27,7 +27,7 @@ with the following command:
 
     $ systemctl --user start feeds-to-pocket.service
 
-systemd will capture the <b>Feeds To Pocket</b>'s output
+systemd will capture <b>Feeds To Pocket</b>'s output
 and save it in its journal.
 You can view the captured output
 with this command:
