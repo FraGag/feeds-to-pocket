@@ -332,7 +332,14 @@ fn process_feed(feed: &mut Feed, mut pocket: Option<&mut Pocket>) -> Result<(), 
                 &mut rss_entries
             }
             syndication::Feed::Atom(atom) => {
-                atom_entries = atom.entries.into_iter().rev().flat_map(|entry| entry.links).map(|link| link.href);
+                atom_entries = atom.entries.into_iter().rev().flat_map(|entry| entry.links).filter_map(|link| {
+                    match link.rel.as_ref().map(|rel| rel.as_str()) {
+                        // Only push links with an "alternate" relation type.
+                        // When the `rel` atttribute is not present, "alternate" is implied.
+                        None | Some("alternate") | Some("http://www.iana.org/assignments/relation/alternate") => Some(link.href),
+                        _ => None,
+                    }
+                });
                 &mut atom_entries
             }
         };
