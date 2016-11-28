@@ -16,6 +16,7 @@ use std::path::Path;
 use std::process;
 use std::str::FromStr;
 use clap::{App, Arg, ArgMatches, SubCommand};
+use hyper::client::IntoUrl;
 use hyper::header::{ETag, EntityTag, HttpDate, IfModifiedSince, IfNoneMatch, LastModified, UserAgent};
 use pocket::Pocket;
 
@@ -354,18 +355,29 @@ fn process_feed(feed: &mut Feed, mut pocket: Option<&mut Pocket>) -> Result<(), 
             if !feed.processed_entries.iter().rev().any(|x| x == &entry_url) {
                 let is_processed =
                     if let Some(ref mut pocket) = pocket {
-                        // Push the entry to Pocket.
-                        // Only consider the entry processed if the push succeeded.
-                        // That means that if it failed, we'll try again next time.
-                        println!("pushing {} to Pocket", entry_url);
-                        let tags = if feed.tags.is_empty() { None } else { Some(&*feed.tags) };
-                        let push_result = pocket.add(&entry_url, None, tags, None);
-                        match push_result {
-                            Ok(_) => true,
-                            Err(error) => {
-                                println!("error while adding URL {url} to Pocket:\n  {error}",
-                                    url=entry_url, error=Indented(&error));
-                                false
+                        match entry_url.into_url() {
+                            Ok(parsed_entry_url) => {
+                                // Push the entry to Pocket.
+                                // Only consider the entry processed if the push succeeded.
+                                // That means that if it failed, we'll try again next time.
+                                println!("pushing {} to Pocket", entry_url);
+                                let tags = if feed.tags.is_empty() { None } else { Some(&*feed.tags) };
+                                let push_result = pocket.add(&parsed_entry_url, None, tags, None);
+                                match push_result {
+                                    Ok(_) => true,
+                                    Err(error) => {
+                                        println!("error while adding URL {url} to Pocket:\n  {error}",
+                                            url=entry_url, error=Indented(&error));
+                                        false
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                println!("'{}' is not a valid URL ({}). ignoring.", entry_url, e);
+
+                                // Mark the entry as processed,
+                                // to avoid noise in subsequent runs.
+                                true
                             }
                         }
                     } else {

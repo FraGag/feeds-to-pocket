@@ -20,7 +20,7 @@
 //    and I didn't feel like fixing and testing them.
 
 use hyper::header::{Header, HeaderFormat, ContentType};
-use hyper::client::{Client, IntoUrl};
+use hyper::client::Client;
 use hyper::header::parsing::from_one_raw_str;
 use hyper::error::Error as HttpError;
 use url::Url;
@@ -273,11 +273,11 @@ impl Pocket {
         })
     }
 
-    pub fn add<T: IntoUrl>(&mut self, url: T, title: Option<&str>, tags: Option<&str>, tweet_id: Option<&str>) -> PocketResult<()> {
+    pub fn add(&mut self, url: &Url, title: Option<&str>, tags: Option<&str>, tweet_id: Option<&str>) -> PocketResult<()> {
         let request = PocketAddRequest {
             consumer_key: &self.consumer_key,
             access_token: self.access_token.as_ref().unwrap(),
-            url: &url.into_url().unwrap(),
+            url: url,
             title: title,
             tags: tags,
             tweet_id: tweet_id,
