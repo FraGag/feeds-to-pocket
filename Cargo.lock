@@ -1,6 +1,6 @@
 [root]
 name = "feeds-to-pocket"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "clap 2.19.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "hyper 0.9.14 (registry+https://github.com/rust-lang/crates.io-index)",
