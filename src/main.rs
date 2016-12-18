@@ -6,8 +6,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![cfg_attr(feature = "serde_macros", feature(custom_derive, plugin))]
-#![cfg_attr(feature = "serde_macros", plugin(serde_macros))]
+#![cfg_attr(feature = "serde_derive", feature(proc_macro))]
 
 #![allow(unknown_lints)]
 
@@ -18,13 +17,16 @@ extern crate mime;
 #[macro_use]
 extern crate quick_error;
 extern crate serde;
+#[cfg(feature = "serde_derive")]
+#[macro_use]
+extern crate serde_derive;
 extern crate serde_json;
 extern crate serde_yaml;
 extern crate syndication;
 extern crate url;
 
-#[cfg(feature = "serde_macros")]
+#[cfg(feature = "serde_derive")]
 include!("main.rs.in");
 
-#[cfg(not(feature = "serde_macros"))]
+#[cfg(feature = "serde_codegen")]
 include!(concat!(env!("OUT_DIR"), "/main.rs"));

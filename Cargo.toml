@@ -12,7 +12,7 @@ exclude = [".travis.yml"]
 
 [features]
 default = ["serde_codegen"]
-unstable = ["serde_macros"]
+unstable = ["serde_derive"]
 
 [dependencies]
 clap = "2.5"
@@ -20,8 +20,8 @@ hyper = "0.9"
 mime = "0.2"
 quick-error = "1.0"
 serde = "0.8"
+serde_derive = { version = "0.8", optional = true }
 serde_json = "0.8"
-serde_macros = { version = "0.8", optional = true }
 serde_yaml = "0.4"
 syndication = "0.3"
 url = { version = "1.2", features = ["serde"] }
