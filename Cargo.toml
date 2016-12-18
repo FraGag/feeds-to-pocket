@@ -23,7 +23,7 @@ serde = "0.8"
 serde_derive = { version = "0.8", optional = true }
 serde_json = "0.8"
 serde_yaml = "0.5"
-syndication = "0.3"
+syndication = "0.4"
 url = { version = "1.2", features = ["serde"] }
 yaml-rust = "0.3"
 
