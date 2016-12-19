@@ -28,5 +28,5 @@ extern crate url;
 #[cfg(feature = "serde_derive")]
 include!("main.rs.in");
 
-#[cfg(feature = "serde_codegen")]
+#[cfg(not(feature = "serde_derive"))]
 include!(concat!(env!("OUT_DIR"), "/main.rs"));
