@@ -15,16 +15,16 @@ default = ["serde_codegen"]
 unstable = ["serde_derive"]
 
 [dependencies]
-clap = "2.5"
+clap = "2.26"
 hyper = "0.9"
 mime = "0.2"
-quick-error = "1.0"
+quick-error = "1.2"
 serde = "0.8"
 serde_derive = { version = "0.8", optional = true }
 serde_json = "0.8"
 serde_yaml = "0.5"
 syndication = "0.4"
-url = { version = "1.2", features = ["serde"] }
+url = { version = "1.5", features = ["serde"] }
 yaml-rust = "0.3"
 
 [build-dependencies]
