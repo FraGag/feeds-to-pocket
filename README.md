@@ -8,10 +8,18 @@ and pushes new items to your [Pocket][pocket] list.
 ## License
 
 <b>Feeds to Pocket</b> is licensed
-under the terms of both the [MIT license][license-mit]
-and the [Apache License, version 2.0][license-apache].
+under the terms of either the [MIT license][license-mit]
+or the [Apache License, version 2.0][license-apache], at your option.
 <b>Feeds to Pocket</b> also uses third party libraries,
 some of which have different licenses.
+
+### Contribution
+
+Unless you explicitly state otherwise,
+any contribution intentionally submitted for inclusion in the work by you,
+as defined in the Apache-2.0 license,
+shall be dual licensed as above,
+without any additional terms or conditions.
 
 [license-mit]: LICENSE-MIT
 [license-apache]: LICENSE-APACHE
