@@ -25,7 +25,7 @@ use hyper::header::parsing::from_one_raw_str;
 use hyper::error::Error as HttpError;
 use url::Url;
 use mime::Mime;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use serde_json;
 use std::error::Error;
 use std::convert::From;
@@ -34,6 +34,7 @@ use std::io::Error as IoError;
 use std::io::Read;
 use std::ops::{Deref, DerefMut};
 use std::result::Result;
+use url_serde;
 
 #[derive(Debug)]
 pub enum PocketError {
@@ -194,10 +195,18 @@ pub struct PocketAuthorizeResponse {
 pub struct PocketAddRequest<'a> {
     consumer_key: &'a str,
     access_token: &'a str,
+    #[serde(serialize_with = "serialize_url_ref")]
     url: &'a Url,
     title: Option<&'a str>,
     tags: Option<&'a str>,
     tweet_id: Option<&'a str>,
+}
+
+fn serialize_url_ref<S>(value: &&Url, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    url_serde::serialize(*value, serializer)
 }
 
 impl Pocket {
@@ -288,11 +297,11 @@ impl Pocket {
 }
 
 trait DecodeExt {
-    fn decode<Resp: Deserialize>(&self) -> PocketResult<Resp>;
+    fn decode<'a, Resp: Deserialize<'a>>(&'a self) -> PocketResult<Resp>;
 }
 
 impl DecodeExt for str {
-    fn decode<Resp: Deserialize>(&self) -> PocketResult<Resp> {
+    fn decode<'a, Resp: Deserialize<'a>>(&'a self) -> PocketResult<Resp> {
         serde_json::from_str::<Resp>(self).map_err(From::from)
     }
 }
