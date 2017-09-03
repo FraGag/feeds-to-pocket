@@ -19,14 +19,6 @@
 //    but they're also presumably broken,
 //    and I didn't feel like fixing and testing them.
 
-use hyper::header::{Header, HeaderFormat, ContentType};
-use hyper::client::Client;
-use hyper::header::parsing::from_one_raw_str;
-use hyper::error::Error as HttpError;
-use url::Url;
-use mime::Mime;
-use serde::{Deserialize, Serialize, Serializer};
-use serde_json;
 use std::error::Error;
 use std::convert::From;
 use std::fmt;
@@ -34,11 +26,21 @@ use std::io::Error as IoError;
 use std::io::Read;
 use std::ops::{Deref, DerefMut};
 use std::result::Result;
+
+use hyper::Error as HyperError;
+use mime::Mime;
+use reqwest::{Client, Error as HttpError};
+use reqwest::header::{self, ContentType, Header, Raw};
+use reqwest::header::parsing::from_one_raw_str;
+use serde::{Deserialize, Serialize, Serializer};
+use serde_json;
+use url::Url;
 use url_serde;
 
 #[derive(Debug)]
 pub enum PocketError {
     Http(HttpError),
+    Io(IoError),
     SerdeJson(serde_json::Error),
     Proto(u16, String)
 }
@@ -53,7 +55,7 @@ impl From<serde_json::Error> for PocketError {
 
 impl From<IoError> for PocketError {
     fn from(err: IoError) -> PocketError {
-        PocketError::Http(From::from(err))
+        PocketError::Io(err)
     }
 }
 
@@ -67,6 +69,7 @@ impl Error for PocketError {
     fn description(&self) -> &str {
         match *self {
             PocketError::Http(ref e) => e.description(),
+            PocketError::Io(ref e) => e.description(),
             PocketError::SerdeJson(ref e) => e.description(),
             PocketError::Proto(..) => "protocol error"
         }
@@ -75,6 +78,7 @@ impl Error for PocketError {
     fn cause(&self) -> Option<&Error> {
         match *self {
             PocketError::Http(ref e) => Some(e),
+            PocketError::Io(ref e) => Some(e),
             PocketError::SerdeJson(ref e) => Some(e),
             PocketError::Proto(..) => None
         }
@@ -85,6 +89,7 @@ impl fmt::Display for PocketError {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match *self {
             PocketError::Http(ref e) => e.fmt(fmt),
+            PocketError::Io(ref e) => e.fmt(fmt),
             PocketError::SerdeJson(ref e) => e.fmt(fmt),
             PocketError::Proto(ref code, ref msg) => fmt.write_str(&format!("{} (code {})", msg, code))
         }
@@ -112,14 +117,12 @@ impl Header for XAccept {
         "X-Accept"
     }
 
-    fn parse_header(raw: &[Vec<u8>]) -> Result<XAccept, HttpError> {
+    fn parse_header(raw: &Raw) -> Result<XAccept, HyperError> {
         from_one_raw_str(raw).map(XAccept)
     }
-}
 
-impl HeaderFormat for XAccept {
-    fn fmt_header(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(&self.0, fmt)
+    fn fmt_header(&self, fmt: &mut header::Formatter) -> fmt::Result {
+        fmt.fmt_line(&self.0)
     }
 }
 
@@ -133,14 +136,12 @@ impl Header for XError {
         "X-Error"
     }
 
-    fn parse_header(raw: &[Vec<u8>]) -> Result<XError, HttpError> {
+    fn parse_header(raw: &Raw) -> Result<XError, HyperError> {
         from_one_raw_str(raw).map(XError)
     }
-}
 
-impl HeaderFormat for XError {
-    fn fmt_header(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(&self.0, fmt)
+    fn fmt_header(&self, fmt: &mut header::Formatter) -> fmt::Result {
+        fmt.fmt_line(&self.0)
     }
 }
 
@@ -149,14 +150,12 @@ impl Header for XErrorCode {
         "X-Error-Code"
     }
 
-    fn parse_header(raw: &[Vec<u8>]) -> Result<XErrorCode, HttpError> {
+    fn parse_header(raw: &Raw) -> Result<XErrorCode, HyperError> {
         from_one_raw_str(raw).map(XErrorCode)
     }
-}
 
-impl HeaderFormat for XErrorCode {
-    fn fmt_header(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(&self.0, fmt)
+    fn fmt_header(&self, fmt: &mut header::Formatter) -> fmt::Result {
+        fmt.fmt_line(&self.0)
     }
 }
 
@@ -210,12 +209,12 @@ where
 }
 
 impl Pocket {
-    pub fn new(consumer_key: &str, access_token: Option<&str>) -> Pocket {
+    pub fn new(consumer_key: &str, access_token: Option<&str>, client: Client) -> Pocket {
         Pocket {
             consumer_key: consumer_key.to_string(),
             access_token: access_token.map(|v| v.to_string()),
             code: None,
-            client: Client::new(),
+            client: client,
         }
     }
 
@@ -229,17 +228,17 @@ impl Pocket {
 
         let app_json: Mime = "application/json".parse().unwrap();
 
-        self.client.post(url)
+        self.client.post(url)?
             .header(XAccept(app_json.clone()))
             .header(ContentType(app_json))
-            .body(&request)
+            .body(request)
             .send().map_err(From::from)
-            .and_then(|mut r| match r.headers.get::<XErrorCode>().map(|v| v.0) {
+            .and_then(|mut r| match r.headers().get::<XErrorCode>().map(|v| v.0) {
                 None => {
                     let mut out = String::new();
                     r.read_to_string(&mut out).map_err(From::from).map(|_| out)
                 },
-                Some(code) => Err(PocketError::Proto(code, r.headers.get::<XError>().map_or("unknown protocol error", |v| &*v.0).to_string())),
+                Some(code) => Err(PocketError::Proto(code, r.headers().get::<XError>().map_or("unknown protocol error", |v| &*v.0).to_string())),
             })
     }
 

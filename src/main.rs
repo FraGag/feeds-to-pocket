@@ -14,6 +14,7 @@ extern crate hyper;
 extern crate mime;
 #[macro_use]
 extern crate quick_error;
+extern crate reqwest;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
@@ -32,9 +33,12 @@ use std::io::{self, Read, Write};
 use std::path::Path;
 use std::process;
 use std::str::FromStr;
+
 use clap::{App, Arg, ArgMatches, SubCommand};
-use hyper::client::IntoUrl;
-use hyper::header::{ETag, EntityTag, HttpDate, IfModifiedSince, IfNoneMatch, LastModified, UserAgent};
+use reqwest::{Client, StatusCode};
+use reqwest::header::{ETag, EntityTag, HttpDate, IfModifiedSince, IfNoneMatch, LastModified, UserAgent};
+use url::Url;
+
 use pocket::Pocket;
 
 fn main() {
@@ -241,7 +245,8 @@ fn set_consumer_key(config: &mut Configuration, args: &ArgMatches) {
 }
 
 fn login(config: &mut Configuration) -> Result<(), ErrorWithContext> {
-    let mut pocket = try_with_context!(get_pocket(config), "unable to perform authorization");
+    let client = get_client()?;
+    let mut pocket = try_with_context!(get_pocket(config, client), "unable to perform authorization");
 
     if config.access_token.is_some() {
         println!("note: There's already an access token in the configuration file. \
@@ -271,10 +276,11 @@ fn login(config: &mut Configuration) -> Result<(), ErrorWithContext> {
 }
 
 fn sync(config: &mut Configuration) -> Result<(), ErrorWithContext> {
-    let mut pocket = try_with_context!(get_authenticated_pocket(config), "unable to sync");
+    let client = get_client()?;
+    let mut pocket = try_with_context!(get_authenticated_pocket(config, client.clone()), "unable to sync");
 
     for feed in &mut config.feeds {
-        process_feed(feed, Some(&mut pocket)).unwrap_or_else(|e| {
+        process_feed(feed, Some(&mut pocket), &client).unwrap_or_else(|e| {
             let _ = writeln!(io::stderr(), "{}", e);
         });
     }
@@ -289,6 +295,8 @@ fn add(config: &mut Configuration, args: &ArgMatches) -> Result<(), ErrorWithCon
         }
     }
 
+    let client = get_client()?;
+
     let feed_url = args.value_of(subcommands::add::args::FEED_URL).unwrap();
     if let Some(feed) = config.feeds.iter_mut().find(|feed| feed.url == feed_url) {
         apply_tags(feed, args);
@@ -297,7 +305,7 @@ fn add(config: &mut Configuration, args: &ArgMatches) -> Result<(), ErrorWithCon
 
     let send_to_pocket = args.is_present(subcommands::add::args::UNREAD);
     let mut pocket = if send_to_pocket {
-        Some(try_with_context!(get_authenticated_pocket(config), "unable to add feed"))
+        Some(try_with_context!(get_authenticated_pocket(config, client.clone()), "unable to add feed"))
     } else {
         None
     };
@@ -314,18 +322,18 @@ fn add(config: &mut Configuration, args: &ArgMatches) -> Result<(), ErrorWithCon
 
     let feed = config.feeds.last_mut().unwrap();
 
-    process_feed(feed, pocket.as_mut())
+    process_feed(feed, pocket.as_mut(), &client)
 }
 
-fn get_pocket(config: &Configuration) -> Result<Pocket, PocketSetupError> {
+fn get_pocket(config: &Configuration, client: Client) -> Result<Pocket, PocketSetupError> {
     match config.consumer_key {
-        Some(ref consumer_key) => Ok(Pocket::new(consumer_key, config.access_token.as_ref().map(|x| x.as_ref()))),
+        Some(ref consumer_key) => Ok(Pocket::new(consumer_key, config.access_token.as_ref().map(|x| x.as_ref()), client)),
         None => Err(PocketSetupError::MissingConsumerKey),
     }
 }
 
-fn get_authenticated_pocket(config: &Configuration) -> Result<Pocket, PocketSetupError> {
-    get_pocket(config).and_then(|pocket| {
+fn get_authenticated_pocket(config: &Configuration, client: Client) -> Result<Pocket, PocketSetupError> {
+    get_pocket(config, client).and_then(|pocket| {
         match config.access_token {
             Some(_) => Ok(pocket),
             None => Err(PocketSetupError::MissingAccessToken),
@@ -333,9 +341,13 @@ fn get_authenticated_pocket(config: &Configuration) -> Result<Pocket, PocketSetu
     })
 }
 
-fn process_feed(feed: &mut Feed, mut pocket: Option<&mut Pocket>) -> Result<(), ErrorWithContext> {
+fn get_client() -> Result<Client, ErrorWithContext> {
+    Ok(try_with_context!(Client::new(), "failed to create the HTTP client"))
+}
+
+fn process_feed(feed: &mut Feed, mut pocket: Option<&mut Pocket>, client: &Client) -> Result<(), ErrorWithContext> {
     println!("downloading {}", feed.url);
-    let feed_response = try_with_context!(fetch(feed),
+    let feed_response = try_with_context!(fetch(feed, client),
         format!("failed to download feed at {url}", url=feed.url));
 
     // Do nothing if we received a 304 Not Modified response.
@@ -372,7 +384,7 @@ fn process_feed(feed: &mut Feed, mut pocket: Option<&mut Pocket>) -> Result<(), 
             if !feed.processed_entries.iter().rev().any(|x| x == &entry_url) {
                 let is_processed =
                     if let Some(ref mut pocket) = pocket {
-                        match entry_url.into_url() {
+                        match Url::parse(&entry_url) {
                             Ok(parsed_entry_url) => {
                                 // Push the entry to Pocket.
                                 // Only consider the entry processed if the push succeeded.
@@ -426,39 +438,36 @@ fn process_feed(feed: &mut Feed, mut pocket: Option<&mut Pocket>) -> Result<(), 
     Ok(())
 }
 
-fn fetch(feed: &Feed) -> Result<FeedResponse, ErrorWithContext> {
-    let mut client = hyper::Client::new();
-    client.set_redirect_policy(hyper::client::RedirectPolicy::FollowAll);
-
-    let mut request = client.get(&feed.url)
-        .header(UserAgent(String::from(concat!("feeds-to-pocket/", env!("CARGO_PKG_VERSION")))));
+fn fetch(feed: &Feed, client: &Client) -> Result<FeedResponse, ErrorWithContext> {
+    let mut request = try_with_context!(client.get(&feed.url), "failed to prepare a GET request");
+    request.header(UserAgent::new(concat!("feeds-to-pocket/", env!("CARGO_PKG_VERSION"))));
 
     // Add an If-Modified-Since header if we have a Last-Modified date.
     if let Some(ref last_modified) = feed.last_modified {
         if let Ok(last_modified) = HttpDate::from_str(last_modified) {
-            request = request.header(IfModifiedSince(last_modified));
+            request.header(IfModifiedSince(last_modified));
         }
     }
 
     // Add an If-None-Match header if we have an ETag.
     if let Some(ref e_tag) = feed.last_e_tag {
         if let Ok(e_tag) = EntityTag::from_str(e_tag) {
-            request = request.header(IfNoneMatch::Items(vec![e_tag]));
+            request.header(IfNoneMatch::Items(vec![e_tag]));
         }
     }
 
     let mut response = try_with_context!(request.send(),
         "failed to send request");
-    if response.status == hyper::status::StatusCode::NotModified {
+    if response.status() == StatusCode::NotModified {
         Ok(FeedResponse::NotModified)
     } else {
-        if !response.status.is_success() {
-            try_with_context!(Err(UnacceptableHttpStatus::UnacceptableHttpStatus(response.status)),
+        if !response.status().is_success() {
+            try_with_context!(Err(UnacceptableHttpStatus::UnacceptableHttpStatus(response.status())),
                 format!("the HTTP request to <{}> didn't return a success status", feed.url));
         }
 
-        let last_modified = response.headers.get::<LastModified>().cloned();
-        let e_tag = response.headers.get::<ETag>().cloned();
+        let last_modified = response.headers().get::<LastModified>().cloned();
+        let e_tag = response.headers().get::<ETag>().cloned();
 
         let mut body = String::new();
         try_with_context!(response.read_to_string(&mut body),
@@ -569,7 +578,7 @@ quick_error! {
 quick_error! {
     #[derive(Debug)]
     enum UnacceptableHttpStatus {
-        UnacceptableHttpStatus(status: hyper::status::StatusCode) {
+        UnacceptableHttpStatus(status: StatusCode) {
             display("{}", status)
         }
     }
