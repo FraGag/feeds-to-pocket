@@ -8,6 +8,7 @@
 
 #![allow(unknown_lints)]
 
+extern crate atom_syndication;
 #[macro_use]
 extern crate clap;
 extern crate hyper;
@@ -15,12 +16,12 @@ extern crate mime;
 #[macro_use]
 extern crate quick_error;
 extern crate reqwest;
+extern crate rss;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
 extern crate serde_yaml;
-extern crate syndication;
 extern crate url;
 extern crate url_serde;
 
@@ -289,7 +290,7 @@ fn sync(config: &mut Configuration) -> Result<(), ErrorWithContext> {
 }
 
 fn add(config: &mut Configuration, args: &ArgMatches) -> Result<(), ErrorWithContext> {
-    fn apply_tags(feed: &mut Feed, args: &ArgMatches) {
+    fn apply_tags(feed: &mut FeedConfiguration, args: &ArgMatches) {
         if let Some(tags) = args.value_of(subcommands::add::args::TAGS) {
             feed.tags = tags.to_owned();
         }
@@ -310,7 +311,7 @@ fn add(config: &mut Configuration, args: &ArgMatches) -> Result<(), ErrorWithCon
         None
     };
 
-    let mut feed = Feed {
+    let mut feed = FeedConfiguration {
         url: String::from(feed_url),
         tags: String::new(),
         processed_entries: vec![],
@@ -345,23 +346,23 @@ fn get_client() -> Result<Client, ErrorWithContext> {
     Ok(try_with_context!(Client::new(), "failed to create the HTTP client"))
 }
 
-fn process_feed(feed: &mut Feed, mut pocket: Option<&mut Pocket>, client: &Client) -> Result<(), ErrorWithContext> {
+fn process_feed(feed: &mut FeedConfiguration, mut pocket: Option<&mut Pocket>, client: &Client) -> Result<(), ErrorWithContext> {
     println!("downloading {}", feed.url);
     let feed_response = try_with_context!(fetch(feed, client),
         format!("failed to download feed at {url}", url=feed.url));
 
     // Do nothing if we received a 304 Not Modified response.
     if let FeedResponse::Success { body, last_modified, e_tag } = feed_response {
-        let parsed_feed = try_with_context!(body.parse::<syndication::Feed>(),
+        let parsed_feed = try_with_context!(body.parse::<Feed>(),
             format!("failed to parse feed at {url} as either RSS or Atom", url=feed.url));
 
         let (mut rss_entries, mut atom_entries);
         let entries: &mut Iterator<Item=String> = match parsed_feed {
-            syndication::Feed::RSS(rss) => {
+            Feed::RSS(rss) => {
                 rss_entries = rss.items.into_iter().rev().flat_map(|item| item.link);
                 &mut rss_entries
             }
-            syndication::Feed::Atom(atom) => {
+            Feed::Atom(atom) => {
                 atom_entries = atom.entries.into_iter().rev().flat_map(|entry| entry.links).filter_map(|link| {
                     match link.rel.as_ref().map(|rel| rel.as_str()) {
                         // Only push links with an "alternate" relation type.
@@ -438,7 +439,7 @@ fn process_feed(feed: &mut Feed, mut pocket: Option<&mut Pocket>, client: &Clien
     Ok(())
 }
 
-fn fetch(feed: &Feed, client: &Client) -> Result<FeedResponse, ErrorWithContext> {
+fn fetch(feed: &FeedConfiguration, client: &Client) -> Result<FeedResponse, ErrorWithContext> {
     let mut request = try_with_context!(client.get(&feed.url), "failed to prepare a GET request");
     request.header(UserAgent::new(concat!("feeds-to-pocket/", env!("CARGO_PKG_VERSION"))));
 
@@ -504,11 +505,11 @@ struct Configuration {
     access_token: Option<String>,
     #[serde(skip_serializing_if="Vec::is_empty")]
     #[serde(default)]
-    feeds: Vec<Feed>,
+    feeds: Vec<FeedConfiguration>,
 }
 
 #[derive(Deserialize, Serialize)]
-struct Feed {
+struct FeedConfiguration {
     url: String,
     #[serde(skip_serializing_if="str::is_empty")]
     #[serde(default)]
@@ -531,6 +532,44 @@ enum FeedResponse {
     NotModified,
 }
 
+enum Feed {
+    Atom(atom_syndication::Feed),
+    RSS(rss::Channel),
+}
+
+impl FromStr for Feed {
+    type Err = FeedError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.parse::<atom_syndication::Feed>() {
+            Ok(feed) => Ok(Feed::Atom(feed)),
+            Err(atom_error) => match s.parse::<rss::Rss>() {
+                Ok(rss::Rss(channel)) => Ok(Feed::RSS(channel)),
+                Err(rss_error) => Err(FeedError { atom_error, rss_error })
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+struct FeedError {
+    atom_error: &'static str,
+    rss_error: rss::ReadError,
+}
+
+impl Display for FeedError {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        write!(fmt, "could not parse input as either Atom or RSS:\n  parsing as Atom failed with:\n    {}\n  parsing as RSS failed with:\n    {}",
+            Indented(Indented(&self.atom_error)), Indented(Indented(&self.rss_error)))
+    }
+}
+
+impl Error for FeedError {
+    fn description(&self) -> &str {
+        "could not parse input as either Atom or RSS"
+    }
+}
+
 #[derive(Debug)]
 struct ErrorWithContext {
     error: Box<Error>,
@@ -547,7 +586,7 @@ impl ErrorWithContext {
 }
 
 impl Display for ErrorWithContext {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         write!(fmt, "{}:\n  {}", self.context, Indented(&self.error))
     }
 }
@@ -602,9 +641,9 @@ impl Errors {
 
 /// Wraps a type implementing Display
 /// and adds two spaces after each line feed in its display output.
-struct Indented<'a, D: Display + 'a>(&'a D);
+struct Indented<D: Display>(D);
 
-impl<'a, D: Display + 'a> Display for Indented<'a, D> {
+impl<D: Display> Display for Indented<D> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         use std::fmt::Write;
         write!(IndentedWrite(fmt), "{}", self.0)

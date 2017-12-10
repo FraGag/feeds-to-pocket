@@ -142,16 +142,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "feeds-to-pocket"
 version = "0.1.5-pre"
 dependencies = [
+ "atom_syndication 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.26.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "hyper 0.11.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "mime 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "quick-error 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "reqwest 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rss 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_yaml 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "syndication 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "url 1.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "url_serde 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -629,15 +630,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "syndication"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-dependencies = [
- "atom_syndication 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "rss 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
 name = "synom"
 version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -918,7 +910,6 @@ dependencies = [
 "checksum smallvec 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "4c8cbcd6df1e117c2210e13ab5109635ad68a929fcbb8964dc965b76cb5ee013"
 "checksum strsim 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)" = "b4d15c810519a91cf877e7e36e63fe068815c678181439f2f29e2562147c3694"
 "checksum syn 0.11.11 (registry+https://github.com/rust-lang/crates.io-index)" = "d3b891b9015c88c576343b9b3e41c2c11a51c219ef067b264bd9c8aa9b441dad"
-"checksum syndication 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "d0cb34c46021b499f92087abd66abc05fd05f6f16312ca5a949b4f743b9d59fe"
 "checksum synom 0.11.3 (registry+https://github.com/rust-lang/crates.io-index)" = "a393066ed9010ebaed60b9eafa373d4b1baac186dd7e008555b0f702b51945b6"
 "checksum take 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "b157868d8ac1f56b64604539990685fa7611d8fa9e5476cf0c02cf34d32917c5"
 "checksum tempdir 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)" = "87974a6f5c1dfb344d733055601650059a3363de2a6104819293baff662132d6"
