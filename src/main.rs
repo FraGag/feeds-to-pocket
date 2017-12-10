@@ -246,7 +246,7 @@ fn set_consumer_key(config: &mut Configuration, args: &ArgMatches) {
 }
 
 fn login(config: &mut Configuration) -> Result<(), ErrorWithContext> {
-    let client = get_client()?;
+    let client = Client::new();
     let mut pocket = try_with_context!(get_pocket(config, client), "unable to perform authorization");
 
     if config.access_token.is_some() {
@@ -277,7 +277,7 @@ fn login(config: &mut Configuration) -> Result<(), ErrorWithContext> {
 }
 
 fn sync(config: &mut Configuration) -> Result<(), ErrorWithContext> {
-    let client = get_client()?;
+    let client = Client::new();
     let mut pocket = try_with_context!(get_authenticated_pocket(config, client.clone()), "unable to sync");
 
     for feed in &mut config.feeds {
@@ -296,7 +296,7 @@ fn add(config: &mut Configuration, args: &ArgMatches) -> Result<(), ErrorWithCon
         }
     }
 
-    let client = get_client()?;
+    let client = Client::new();
 
     let feed_url = args.value_of(subcommands::add::args::FEED_URL).unwrap();
     if let Some(feed) = config.feeds.iter_mut().find(|feed| feed.url == feed_url) {
@@ -342,10 +342,6 @@ fn get_authenticated_pocket(config: &Configuration, client: Client) -> Result<Po
     })
 }
 
-fn get_client() -> Result<Client, ErrorWithContext> {
-    Ok(try_with_context!(Client::new(), "failed to create the HTTP client"))
-}
-
 fn process_feed(feed: &mut FeedConfiguration, mut pocket: Option<&mut Pocket>, client: &Client) -> Result<(), ErrorWithContext> {
     println!("downloading {}", feed.url);
     let feed_response = try_with_context!(fetch(feed, client),
@@ -357,17 +353,16 @@ fn process_feed(feed: &mut FeedConfiguration, mut pocket: Option<&mut Pocket>, c
             format!("failed to parse feed at {url} as either RSS or Atom", url=feed.url));
 
         let (mut rss_entries, mut atom_entries);
-        let entries: &mut Iterator<Item=String> = match parsed_feed {
-            Feed::RSS(rss) => {
-                rss_entries = rss.items.into_iter().rev().flat_map(|item| item.link);
+        let entries: &mut Iterator<Item=&str> = match parsed_feed {
+            Feed::RSS(ref rss) => {
+                rss_entries = rss.items().iter().rev().flat_map(|item| item.link());
                 &mut rss_entries
             }
-            Feed::Atom(atom) => {
-                atom_entries = atom.entries.into_iter().rev().flat_map(|entry| entry.links).filter_map(|link| {
-                    match link.rel.as_ref().map(|rel| rel.as_str()) {
+            Feed::Atom(ref atom) => {
+                atom_entries = atom.entries().into_iter().rev().flat_map(|entry| entry.links()).filter_map(|link| {
+                    match link.rel() {
                         // Only push links with an "alternate" relation type.
-                        // When the `rel` atttribute is not present, "alternate" is implied.
-                        None | Some("alternate") | Some("http://www.iana.org/assignments/relation/alternate") => Some(link.href),
+                        "alternate" | "http://www.iana.org/assignments/relation/alternate" => Some(link.href()),
                         _ => None,
                     }
                 });
@@ -379,7 +374,7 @@ fn process_feed(feed: &mut FeedConfiguration, mut pocket: Option<&mut Pocket>, c
         for entry_url in entries {
             // The rss and atom_syndication libraries
             // don't trim the values extracted from the XML files.
-            let entry_url = trim(entry_url);
+            let entry_url = entry_url.trim();
 
             // Ignore entries we've processed previously.
             if !feed.processed_entries.iter().rev().any(|x| x == &entry_url) {
@@ -420,7 +415,7 @@ fn process_feed(feed: &mut FeedConfiguration, mut pocket: Option<&mut Pocket>, c
                 if is_processed {
                     // Remember that we've processed this entry
                     // so we don't try to send it to Pocket next time.
-                    feed.processed_entries.push(entry_url);
+                    feed.processed_entries.push(entry_url.into());
                 } else {
                     all_processed_successfully = false;
                 }
@@ -440,7 +435,7 @@ fn process_feed(feed: &mut FeedConfiguration, mut pocket: Option<&mut Pocket>, c
 }
 
 fn fetch(feed: &FeedConfiguration, client: &Client) -> Result<FeedResponse, ErrorWithContext> {
-    let mut request = try_with_context!(client.get(&feed.url), "failed to prepare a GET request");
+    let mut request = client.get(&feed.url);
     request.header(UserAgent::new(concat!("feeds-to-pocket/", env!("CARGO_PKG_VERSION"))));
 
     // Add an If-Modified-Since header if we have a Last-Modified date.
@@ -480,21 +475,6 @@ fn fetch(feed: &FeedConfiguration, client: &Client) -> Result<FeedResponse, Erro
             e_tag: e_tag,
         })
     }
-}
-
-fn trim(s: String) -> String {
-    // This implementation only allocates if the string isn't already trimmed.
-    {
-        let trimmed = s.trim();
-        let is_already_trimmed =
-            trimmed.as_ptr() == s.as_ptr() &&
-            trimmed.len() == s.len();
-        if is_already_trimmed {
-            None // can't use `s` here, because it's borrowed by `trimmed`
-        } else {
-            Some(String::from(trimmed))
-        }
-    }.unwrap_or(s)
 }
 
 #[derive(Default, Deserialize, Serialize)]
@@ -543,8 +523,8 @@ impl FromStr for Feed {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.parse::<atom_syndication::Feed>() {
             Ok(feed) => Ok(Feed::Atom(feed)),
-            Err(atom_error) => match s.parse::<rss::Rss>() {
-                Ok(rss::Rss(channel)) => Ok(Feed::RSS(channel)),
+            Err(atom_error) => match s.parse::<rss::Channel>() {
+                Ok(channel) => Ok(Feed::RSS(channel)),
                 Err(rss_error) => Err(FeedError { atom_error, rss_error })
             }
         }
@@ -553,8 +533,8 @@ impl FromStr for Feed {
 
 #[derive(Debug)]
 struct FeedError {
-    atom_error: &'static str,
-    rss_error: rss::ReadError,
+    atom_error: atom_syndication::Error,
+    rss_error: rss::Error,
 }
 
 impl Display for FeedError {

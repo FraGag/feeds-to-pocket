@@ -228,7 +228,7 @@ impl Pocket {
 
         let app_json: Mime = "application/json".parse().unwrap();
 
-        self.client.post(url)?
+        self.client.post(url)
             .header(XAccept(app_json.clone()))
             .header(ContentType(app_json))
             .body(request)
