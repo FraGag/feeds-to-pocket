@@ -11,8 +11,6 @@
 extern crate atom_syndication;
 #[macro_use]
 extern crate clap;
-extern crate hyper;
-extern crate mime;
 #[macro_use]
 extern crate quick_error;
 extern crate reqwest;
@@ -37,7 +35,7 @@ use std::str::FromStr;
 
 use clap::{App, Arg, ArgMatches, SubCommand};
 use reqwest::{Client, StatusCode};
-use reqwest::header::{ETag, EntityTag, HttpDate, IfModifiedSince, IfNoneMatch, LastModified, UserAgent};
+use reqwest::header::{self, HeaderValue};
 use url::Url;
 
 use pocket::Pocket;
@@ -426,8 +424,8 @@ fn process_feed(feed: &mut FeedConfiguration, mut pocket: Option<&mut Pocket>, c
         // if any push to Pocket failed
         // so we can try again next time.
         if all_processed_successfully {
-            feed.last_modified = last_modified.map(|v| format!("{}", v));
-            feed.last_e_tag = e_tag.map(|v| format!("{}", v));
+            feed.last_modified = last_modified.and_then(|v| v.to_str().ok().map(|s| s.into()));
+            feed.last_e_tag = e_tag.and_then(|v| v.to_str().ok().map(|s| s.into()));
         }
     }
 
@@ -436,25 +434,21 @@ fn process_feed(feed: &mut FeedConfiguration, mut pocket: Option<&mut Pocket>, c
 
 fn fetch(feed: &FeedConfiguration, client: &Client) -> Result<FeedResponse, ErrorWithContext> {
     let mut request = client.get(&feed.url);
-    request.header(UserAgent::new(concat!("feeds-to-pocket/", env!("CARGO_PKG_VERSION"))));
+    request = request.header(header::USER_AGENT, HeaderValue::from_static(concat!("feeds-to-pocket/", env!("CARGO_PKG_VERSION"))));
 
     // Add an If-Modified-Since header if we have a Last-Modified date.
     if let Some(ref last_modified) = feed.last_modified {
-        if let Ok(last_modified) = HttpDate::from_str(last_modified) {
-            request.header(IfModifiedSince(last_modified));
-        }
+        request = request.header(header::IF_MODIFIED_SINCE, HeaderValue::from_str(last_modified).expect("Failed to convert last_modified to HeaderValue"));
     }
 
     // Add an If-None-Match header if we have an ETag.
     if let Some(ref e_tag) = feed.last_e_tag {
-        if let Ok(e_tag) = EntityTag::from_str(e_tag) {
-            request.header(IfNoneMatch::Items(vec![e_tag]));
-        }
+        request = request.header(header::IF_NONE_MATCH, HeaderValue::from_str(e_tag).expect("Failed to convert last_e_tag to HeaderValue"));
     }
 
     let mut response = try_with_context!(request.send(),
         "failed to send request");
-    if response.status() == StatusCode::NotModified {
+    if response.status() == StatusCode::NOT_MODIFIED {
         Ok(FeedResponse::NotModified)
     } else {
         if !response.status().is_success() {
@@ -462,8 +456,8 @@ fn fetch(feed: &FeedConfiguration, client: &Client) -> Result<FeedResponse, Erro
                 format!("the HTTP request to <{}> didn't return a success status", feed.url));
         }
 
-        let last_modified = response.headers().get::<LastModified>().cloned();
-        let e_tag = response.headers().get::<ETag>().cloned();
+        let last_modified = response.headers().get(header::LAST_MODIFIED).cloned();
+        let e_tag = response.headers().get(header::ETAG).cloned();
 
         let mut body = String::new();
         try_with_context!(response.read_to_string(&mut body),
@@ -506,8 +500,8 @@ struct FeedConfiguration {
 enum FeedResponse {
     Success {
         body: String,
-        last_modified: Option<LastModified>,
-        e_tag: Option<ETag>,
+        last_modified: Option<HeaderValue>,
+        e_tag: Option<HeaderValue>,
     },
     NotModified,
 }

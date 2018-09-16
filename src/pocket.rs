@@ -24,14 +24,10 @@ use std::convert::From;
 use std::fmt;
 use std::io::Error as IoError;
 use std::io::Read;
-use std::ops::{Deref, DerefMut};
 use std::result::Result;
 
-use hyper::Error as HyperError;
-use mime::Mime;
 use reqwest::{Client, Error as HttpError};
-use reqwest::header::{self, ContentType, Header, Raw};
-use reqwest::header::parsing::from_one_raw_str;
+use reqwest::header::{self, HeaderValue};
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json;
 use url::Url;
@@ -42,7 +38,7 @@ pub enum PocketError {
     Http(HttpError),
     Io(IoError),
     SerdeJson(serde_json::Error),
-    Proto(u16, String)
+    Proto(String, String)
 }
 
 pub type PocketResult<T> = Result<T, PocketError>;
@@ -96,68 +92,9 @@ impl fmt::Display for PocketError {
     }
 }
 
-#[derive(Clone, Debug)]
-struct XAccept(pub Mime);
-
-impl Deref for XAccept {
-    type Target = Mime;
-    fn deref(&self) -> &Mime {
-        &self.0
-    }
-}
-
-impl DerefMut for XAccept {
-    fn deref_mut(&mut self) -> &mut Mime {
-        &mut self.0
-    }
-}
-
-impl Header for XAccept {
-    fn header_name() -> &'static str {
-        "X-Accept"
-    }
-
-    fn parse_header(raw: &Raw) -> Result<XAccept, HyperError> {
-        from_one_raw_str(raw).map(XAccept)
-    }
-
-    fn fmt_header(&self, fmt: &mut header::Formatter) -> fmt::Result {
-        fmt.fmt_line(&self.0)
-    }
-}
-
-#[derive(Clone, Debug)]
-struct XError(String);
-#[derive(Clone, Debug)]
-struct XErrorCode(u16);
-
-impl Header for XError {
-    fn header_name() -> &'static str {
-        "X-Error"
-    }
-
-    fn parse_header(raw: &Raw) -> Result<XError, HyperError> {
-        from_one_raw_str(raw).map(XError)
-    }
-
-    fn fmt_header(&self, fmt: &mut header::Formatter) -> fmt::Result {
-        fmt.fmt_line(&self.0)
-    }
-}
-
-impl Header for XErrorCode {
-    fn header_name() -> &'static str {
-        "X-Error-Code"
-    }
-
-    fn parse_header(raw: &Raw) -> Result<XErrorCode, HyperError> {
-        from_one_raw_str(raw).map(XErrorCode)
-    }
-
-    fn fmt_header(&self, fmt: &mut header::Formatter) -> fmt::Result {
-        fmt.fmt_line(&self.0)
-    }
-}
+const X_ACCEPT: &str = "X-Accept";
+const X_ERROR: &str = "X-Error";
+const X_ERROR_CODE: &str = "X-ErrorCode";
 
 pub struct Pocket {
     consumer_key: String,
@@ -226,19 +163,23 @@ impl Pocket {
     fn request<Req: Serialize>(&self, url: &str, request: &Req) -> PocketResult<String> {
         let request = try!(serde_json::to_string(request));
 
-        let app_json: Mime = "application/json".parse().unwrap();
+        let app_json = "application/json";
 
         self.client.post(url)
-            .header(XAccept(app_json.clone()))
-            .header(ContentType(app_json))
+            .header(X_ACCEPT, HeaderValue::from_static(app_json))
+            .header(header::CONTENT_TYPE, HeaderValue::from_static(app_json))
             .body(request)
             .send().map_err(From::from)
-            .and_then(|mut r| match r.headers().get::<XErrorCode>().map(|v| v.0) {
-                None => {
-                    let mut out = String::new();
-                    r.read_to_string(&mut out).map_err(From::from).map(|_| out)
-                },
-                Some(code) => Err(PocketError::Proto(code, r.headers().get::<XError>().map_or("unknown protocol error", |v| &*v.0).to_string())),
+            .and_then(|mut r| {
+                if let Some(code) = r.headers().get(X_ERROR_CODE) {
+                    return Err(PocketError::Proto(
+                        code.to_str().expect("X-Error-Code is not well-formed UTF-8").into(),
+                        r.headers().get(X_ERROR).map(|v| v.to_str().expect("X-Error is not well-formed UTF-8").into()).unwrap_or("unknown protocol error".into()),
+                    ));
+                }
+
+                let mut out = String::new();
+                r.read_to_string(&mut out).map_err(From::from).map(|_| out)
             })
     }
 
