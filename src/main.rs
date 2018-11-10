@@ -85,6 +85,11 @@ fn main() {
             .arg(Arg::with_name(subcommands::add::args::FEED_URL)
                 .help("The URL of the feed to add.")
                 .required(true)))
+        .subcommand(SubCommand::with_name(subcommands::remove::NAME)
+            .about("Removes a feed from your feeds configuration.")
+            .arg(Arg::with_name(subcommands::remove::args::FEED_URL)
+                .help("The URL of the feed to remove.")
+                .required(true)))
         .get_matches();
 
     run(&matches).unwrap_or_else(|e| {
@@ -125,6 +130,14 @@ mod subcommands {
             pub const FEED_URL: &'static str = "feed url";
         }
     }
+
+    pub mod remove {
+        pub const NAME: &'static str = "remove";
+
+        pub mod args {
+            pub const FEED_URL: &'static str = "feed url";
+        }
+    }
 }
 
 fn run(args: &ArgMatches) -> Result<(), ErrorWithContext> {
@@ -139,6 +152,7 @@ fn run(args: &ArgMatches) -> Result<(), ErrorWithContext> {
             (subcommands::set_consumer_key::NAME, Some(args)) => Ok(set_consumer_key(&mut config, &args)),
             (subcommands::login::NAME, _) => login(&mut config),
             (subcommands::add::NAME, Some(args)) => add(&mut config, &args),
+            (subcommands::remove::NAME, Some(args)) => remove(&mut config, &args),
             (_, _) => unreachable!(),
         });
 
@@ -322,6 +336,18 @@ fn add(config: &mut Configuration, args: &ArgMatches) -> Result<(), ErrorWithCon
     let feed = config.feeds.last_mut().unwrap();
 
     process_feed(feed, pocket.as_mut(), &client)
+}
+
+fn remove(config: &mut Configuration, args: &ArgMatches) -> Result<(), ErrorWithContext> {
+    let feed_url = args.value_of(subcommands::add::args::FEED_URL).unwrap();
+    let len_before = config.feeds.len();
+    config.feeds.retain(|feed| feed.url != feed_url);
+    let len_after = config.feeds.len();
+    if len_before == len_after {
+        try_with_context!(Err(FeedNotFound::FeedNotFound(feed_url.into())), "failed to remove feed");
+    }
+
+    Ok(())
 }
 
 fn get_pocket(config: &Configuration, client: Client) -> Result<Pocket, PocketSetupError> {
@@ -603,6 +629,15 @@ quick_error! {
         Errors(errors: Vec<Box<Error>>) {
             description("Multiple errors occurred.")
             display("{}", errors.iter().map(|error| format!("- {}", Indented(error))).collect::<Vec<_>>().join("\n"))
+        }
+    }
+}
+
+quick_error! {
+    #[derive(Debug)]
+    enum FeedNotFound {
+        FeedNotFound(url: String) {
+            display("No feed with URL {} was found.", url)
         }
     }
 }

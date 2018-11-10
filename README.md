@@ -156,6 +156,12 @@ See the example unit files in the `systemd-examples` directory.
 [create-app]: https://getpocket.com/developer/apps/new
 [rate-limits]: https://getpocket.com/developer/docs/rate-limits
 
+### Removing feeds
+
+Use the `remove` subcommand to remove a feed:
+
+    $ feeds-to-pocket ~/feeds-to-pocket.yaml remove https://xkcd.com/atom.xml
+
 ## Compiling from source
 
 To build the project, just run:
