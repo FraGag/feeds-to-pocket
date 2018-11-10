@@ -293,7 +293,7 @@ dependencies = [
 
 [[package]]
 name = "feeds-to-pocket"
-version = "0.1.6-pre"
+version = "0.1.6"
 dependencies = [
  "atom_syndication 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.32.0 (registry+https://github.com/rust-lang/crates.io-index)",
