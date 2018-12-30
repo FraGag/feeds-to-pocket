@@ -74,15 +74,15 @@ First, you must create your configuration file:
 Then, you must [create an application][create-app]
 on the developer section of Pocket's website.
 Make sure you select at least the <b>Add</b> permission.
-This will give you a *customer key*,
+This will give you a *consumer key*,
 which is necessary to use Pocket's API.
 Customer keys have [rate limits][rate-limits],
-so I suggest you keep your customer key private.
+so I suggest you keep your consumer key private.
 
-When you've obtained your customer key,
+When you've obtained your consumer key,
 save it in your configuration file:
 
-    $ feeds-to-pocket ~/feeds-to-pocket.yaml set-customer-key 1234-abcd1234abcd1234abcd1234
+    $ feeds-to-pocket ~/feeds-to-pocket.yaml set-consumer-key 1234-abcd1234abcd1234abcd1234
 
 After that, you need to login.
 Just run:
