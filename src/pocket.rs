@@ -62,15 +62,6 @@ impl From<HttpError> for PocketError {
 }
 
 impl Error for PocketError {
-    fn description(&self) -> &str {
-        match *self {
-            PocketError::Http(ref e) => e.description(),
-            PocketError::Io(ref e) => e.description(),
-            PocketError::SerdeJson(ref e) => e.description(),
-            PocketError::Proto(..) => "protocol error"
-        }
-    }
-
     fn cause(&self) -> Option<&dyn Error> {
         match *self {
             PocketError::Http(ref e) => Some(e),
