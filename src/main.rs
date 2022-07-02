@@ -38,7 +38,7 @@ use reqwest::{Client, StatusCode};
 use reqwest::header::{self, HeaderValue};
 use url::Url;
 
-use pocket::Pocket;
+use crate::pocket::Pocket;
 
 fn main() {
     let matches = App::new("Feeds to Pocket")
