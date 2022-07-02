@@ -15,9 +15,8 @@ extern crate clap;
 extern crate quick_error;
 extern crate reqwest;
 extern crate rss;
-extern crate serde;
 #[macro_use]
-extern crate serde_derive;
+extern crate serde;
 extern crate serde_json;
 extern crate serde_yaml;
 extern crate url;

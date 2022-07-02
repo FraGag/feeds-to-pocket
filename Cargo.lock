@@ -430,7 +430,6 @@ dependencies = [
  "reqwest",
  "rss",
  "serde",
- "serde_derive",
  "serde_json",
  "serde_yaml",
  "url 1.7.2",
