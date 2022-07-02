@@ -6,8 +6,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![allow(unknown_lints)]
-
 mod pocket;
 
 use std::error::Error;
@@ -589,7 +587,6 @@ impl Error for ErrorWithContext {
 }
 
 quick_error! {
-    #[allow(enum_variant_names)]
     #[derive(Debug)]
     enum PocketSetupError {
         MissingConsumerKey {
