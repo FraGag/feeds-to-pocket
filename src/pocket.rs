@@ -71,7 +71,7 @@ impl Error for PocketError {
         }
     }
 
-    fn cause(&self) -> Option<&Error> {
+    fn cause(&self) -> Option<&dyn Error> {
         match *self {
             PocketError::Http(ref e) => Some(e),
             PocketError::Io(ref e) => Some(e),

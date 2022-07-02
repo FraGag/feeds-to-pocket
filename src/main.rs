@@ -377,7 +377,7 @@ fn process_feed(feed: &mut FeedConfiguration, mut pocket: Option<&mut Pocket>, c
             format!("failed to parse feed at {url} as either RSS or Atom", url=feed.url));
 
         let (mut rss_entries, mut atom_entries);
-        let entries: &mut Iterator<Item=&str> = match parsed_feed {
+        let entries: &mut dyn Iterator<Item=&str> = match parsed_feed {
             Feed::RSS(ref rss) => {
                 rss_entries = rss.items().iter().rev().flat_map(|item| item.link());
                 &mut rss_entries
@@ -572,12 +572,12 @@ impl Error for FeedError {
 
 #[derive(Debug)]
 struct ErrorWithContext {
-    error: Box<Error>,
+    error: Box<dyn Error>,
     context: String
 }
 
 impl ErrorWithContext {
-    fn new<S: Into<String>>(error: Box<Error>, context: S) -> ErrorWithContext {
+    fn new<S: Into<String>>(error: Box<dyn Error>, context: S) -> ErrorWithContext {
         ErrorWithContext {
             error: error,
             context: context.into(),
@@ -596,7 +596,7 @@ impl Error for ErrorWithContext {
         &self.context
     }
 
-    fn cause(&self) -> Option<&Error> {
+    fn cause(&self) -> Option<&dyn Error> {
         Some(&*self.error)
     }
 }
@@ -626,7 +626,7 @@ quick_error! {
 quick_error! {
     #[derive(Debug)]
     enum Errors {
-        Errors(errors: Vec<Box<Error>>) {
+        Errors(errors: Vec<Box<dyn Error>>) {
             description("Multiple errors occurred.")
             display("{}", errors.iter().map(|error| format!("- {}", Indented(error))).collect::<Vec<_>>().join("\n"))
         }
@@ -643,7 +643,7 @@ quick_error! {
 }
 
 impl Errors {
-    fn new(errors: Vec<Box<Error>>) -> Errors {
+    fn new(errors: Vec<Box<dyn Error>>) -> Errors {
         Errors::Errors(errors)
     }
 }
