@@ -12,11 +12,11 @@ use std::error::Error;
 use std::fmt::{self, Display};
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process;
 use std::str::FromStr;
 
-use clap::{crate_version, App, Arg, ArgMatches, SubCommand};
+use clap::Parser;
 use quick_error::quick_error;
 use reqwest::{Client, StatusCode};
 use reqwest::header::{self, HeaderValue};
@@ -26,122 +26,21 @@ use url::Url;
 use crate::pocket::Pocket;
 
 fn main() {
-    let matches = App::new("Feeds to Pocket")
-        .author("Francis Gagné <fragag1@gmail.com>")
-        .about("Sends items from your RSS and Atom feeds to your Pocket list.")
-        .version(crate_version!())
-        .arg(Arg::with_name(args::CONFIG)
-            .help("A YAML file containing your feeds configuration.")
-            .required(true)
-            .takes_value(true)
-            .index(1))
-        .subcommand(SubCommand::with_name(subcommands::init::NAME)
-            .about("Creates an empty configuration file (if it doesn't already exist)."))
-        .subcommand(SubCommand::with_name(subcommands::set_consumer_key::NAME)
-            .about("Sets the consumer key in the configuration file.")
-            .arg(Arg::with_name(subcommands::set_consumer_key::args::KEY)
-                .help("A consumer key obtained from Pocket's website. \
-                       You must create your own application \
-                       at https://getpocket.com/developer/apps/new \
-                       to obtain a consumer key; \
-                       I don't want you kicking me out of my own application! :) \
-                       Make sure your application has at least the \"Add\" permission.")
-                .required(true)))
-        .subcommand(SubCommand::with_name(subcommands::login::NAME)
-            .about("Obtains and saves an access token from Pocket. \
-                    This will print a URL on the standard output, \
-                    which you must open in a web browser \
-                    in order to grant your application access to your Pocket account. \
-                    Once authorization has been obtained, \
-                    an access token is saved in the configuration file, \
-                    which will be used to queue up entries in your Pocket list."))
-        .subcommand(SubCommand::with_name(subcommands::add::NAME)
-            .about("Adds a feed to your feeds configuration or updates an existing feed in your feeds configuration.")
-            .arg(Arg::with_name(subcommands::add::args::UNREAD)
-                .long("--unread")
-                .help("Consider all the entries in the feed to be unread. \
-                       All entries will be sent to Pocket immediately. \
-                       By default, all the entries present when the feed is added \
-                       are considered read and are not sent to Pocket."))
-            .arg(Arg::with_name(subcommands::add::args::TAGS)
-                .long("--tags")
-                .help("A comma-separated list of tags to attach to the URLs sent to Pocket.")
-                .takes_value(true))
-            .arg(Arg::with_name(subcommands::add::args::FEED_URL)
-                .help("The URL of the feed to add.")
-                .required(true)))
-        .subcommand(SubCommand::with_name(subcommands::remove::NAME)
-            .about("Removes a feed from your feeds configuration.")
-            .arg(Arg::with_name(subcommands::remove::args::FEED_URL)
-                .help("The URL of the feed to remove.")
-                .required(true)))
-        .get_matches();
-
-    run(&matches).unwrap_or_else(|e| {
+    let args = Args::parse();
+    run(&args).unwrap_or_else(|e| {
         let _ = writeln!(io::stderr(), "{}", e);
         process::exit(1);
     })
 }
 
-// Constants for command-line arguments and subcommands
-
-mod args {
-    pub const CONFIG: &'static str = "config";
-}
-
-mod subcommands {
-    pub mod init {
-        pub const NAME: &'static str = "init";
-    }
-
-    pub mod set_consumer_key {
-        pub const NAME: &'static str = "set-consumer-key";
-
-        pub mod args {
-            pub const KEY: &'static str = "key";
-        }
-    }
-
-    pub mod login {
-        pub const NAME: &'static str = "login";
-    }
-
-    pub mod add {
-        pub const NAME: &'static str = "add";
-
-        pub mod args {
-            pub const UNREAD: &'static str = "unread";
-            pub const TAGS: &'static str = "tags";
-            pub const FEED_URL: &'static str = "feed url";
-        }
-    }
-
-    pub mod remove {
-        pub const NAME: &'static str = "remove";
-
-        pub mod args {
-            pub const FEED_URL: &'static str = "feed url";
-        }
-    }
-}
-
-fn run(args: &ArgMatches) -> Result<(), ErrorWithContext> {
-    if args.subcommand_name() == Some(subcommands::init::NAME) {
-        init(args)
-    } else {
-        let mut config = load_config(args)?;
-
-        // Dispatch based on the subcommand
-        match args.subcommand() {
-            ("", _) => sync(&mut config),
-            (subcommands::set_consumer_key::NAME, Some(args)) => Ok(set_consumer_key(&mut config, &args)),
-            (subcommands::login::NAME, _) => login(&mut config),
-            (subcommands::add::NAME, Some(args)) => add(&mut config, &args),
-            (subcommands::remove::NAME, Some(args)) => remove(&mut config, &args),
-            (_, _) => unreachable!(),
-        }?;
-
-        save_config(&config, args)
+fn run(args: &Args) -> Result<(), ErrorWithContext> {
+    match &args.command {
+        Some(Command::Init) => init(&args.config),
+        Some(Command::SetConsumerKey { key }) => args.with_config(|config| Ok(set_consumer_key(config, key))),
+        Some(Command::Login) => args.with_config(login),
+        Some(Command::Add(cmd)) => args.with_config(|config| add(config, cmd)),
+        Some(Command::Remove { feed_url }) => args.with_config(|config| remove(config, feed_url)),
+        None => args.with_config(sync),
     }
 }
 
@@ -154,8 +53,7 @@ macro_rules! try_with_context {
     })
 }
 
-fn load_config(args: &ArgMatches) -> Result<Configuration, ErrorWithContext> {
-    let config_file_name = args.value_of_os(args::CONFIG).unwrap();
+fn load_config(config_file_name: &Path) -> Result<Configuration, ErrorWithContext> {
     let config_file = try_with_context!(File::open(config_file_name),
         format!("failed to open file {}", config_file_name.to_string_lossy()));
     let config = try_with_context!(serde_yaml::from_reader(config_file),
@@ -163,15 +61,13 @@ fn load_config(args: &ArgMatches) -> Result<Configuration, ErrorWithContext> {
     Ok(config)
 }
 
-fn save_config(config: &Configuration, args: &ArgMatches) -> Result<(), ErrorWithContext> {
-    let config_file_name = &args.value_of_os(args::CONFIG).unwrap();
-
+fn save_config(config: &Configuration, config_file_name: &Path) -> Result<(), ErrorWithContext> {
     // Append ".new" to the config file name.
     // We'll write the updated configuration in this file,
     // then rename the original and the new files
     // to avoid corrupting the configuration.
     let new_config_file_name = &{
-        let mut file_name = config_file_name.to_os_string();
+        let mut file_name = config_file_name.as_os_str().to_os_string();
         file_name.push(".new");
         file_name
     };
@@ -179,7 +75,7 @@ fn save_config(config: &Configuration, args: &ArgMatches) -> Result<(), ErrorWit
     // Append ".old" to the config file name.
     // We'll rename the original configuration file to this.
     let old_config_file_name = &{
-        let mut file_name = config_file_name.to_os_string();
+        let mut file_name = config_file_name.as_os_str().to_os_string();
         file_name.push(".old");
         file_name
     };
@@ -223,9 +119,7 @@ fn save_config(config: &Configuration, args: &ArgMatches) -> Result<(), ErrorWit
     Ok(())
 }
 
-fn init(args: &ArgMatches) -> Result<(), ErrorWithContext> {
-    let config_file_name = args.value_of_os(args::CONFIG).unwrap();
-
+fn init(config_file_name: &Path) -> Result<(), ErrorWithContext> {
     // Only write a configuration file if it doesn't exist yet.
     let mut config_file = try_with_context!(
         OpenOptions::new().write(true).create_new(true).open(config_file_name),
@@ -238,8 +132,8 @@ fn init(args: &ArgMatches) -> Result<(), ErrorWithContext> {
     Ok(())
 }
 
-fn set_consumer_key(config: &mut Configuration, args: &ArgMatches) {
-    config.consumer_key = args.value_of(subcommands::set_consumer_key::args::KEY).map(String::from);
+fn set_consumer_key(config: &mut Configuration, key: &str) {
+    config.consumer_key = Some(key.to_string());
 }
 
 fn login(config: &mut Configuration) -> Result<(), ErrorWithContext> {
@@ -286,22 +180,22 @@ fn sync(config: &mut Configuration) -> Result<(), ErrorWithContext> {
     Ok(())
 }
 
-fn add(config: &mut Configuration, args: &ArgMatches) -> Result<(), ErrorWithContext> {
-    fn apply_tags(feed: &mut FeedConfiguration, args: &ArgMatches) {
-        if let Some(tags) = args.value_of(subcommands::add::args::TAGS) {
+fn add(config: &mut Configuration, args: &AddCommand) -> Result<(), ErrorWithContext> {
+    fn apply_tags(feed: &mut FeedConfiguration, args: &AddCommand) {
+        if let Some(tags) = &args.tags {
             feed.tags = tags.to_owned();
         }
     }
 
     let client = Client::new();
 
-    let feed_url = args.value_of(subcommands::add::args::FEED_URL).unwrap();
-    if let Some(feed) = config.feeds.iter_mut().find(|feed| feed.url == feed_url) {
+    let feed_url = &args.feed_url;
+    if let Some(feed) = config.feeds.iter_mut().find(|feed| &feed.url == feed_url) {
         apply_tags(feed, args);
         return Ok(());
     }
 
-    let send_to_pocket = args.is_present(subcommands::add::args::UNREAD);
+    let send_to_pocket = args.unread;
     let mut pocket = if send_to_pocket {
         Some(try_with_context!(get_authenticated_pocket(config, client.clone()), "unable to add feed"))
     } else {
@@ -323,8 +217,7 @@ fn add(config: &mut Configuration, args: &ArgMatches) -> Result<(), ErrorWithCon
     process_feed(feed, pocket.as_mut(), &client)
 }
 
-fn remove(config: &mut Configuration, args: &ArgMatches) -> Result<(), ErrorWithContext> {
-    let feed_url = args.value_of(subcommands::add::args::FEED_URL).unwrap();
+fn remove(config: &mut Configuration, feed_url: &str) -> Result<(), ErrorWithContext> {
     let len_before = config.feeds.len();
     config.feeds.retain(|feed| feed.url != feed_url);
     let len_after = config.feeds.len();
@@ -480,6 +373,85 @@ fn fetch(feed: &FeedConfiguration, client: &Client) -> Result<FeedResponse, Erro
             e_tag: e_tag,
         })
     }
+}
+
+/// Simple program to greet a person
+#[derive(Parser, Debug)]
+#[clap(author, version, about, long_about = None, display_name = "Feeds to Pocket")]
+struct Args {
+    /// A YAML file containing your feeds configuration.
+    //#[clap(short, long, value_parser)]
+    #[clap(index = 1)]
+    config: PathBuf,
+
+    #[clap(subcommand)]
+    command: Option<Command>,
+}
+
+impl Args {
+    fn with_config(
+        &self,
+        mut callback: impl FnMut(&mut Configuration) -> Result<(), ErrorWithContext>,
+    ) -> Result<(), ErrorWithContext> {
+        let mut config = load_config(&self.config)?;
+
+        callback(&mut config)?;
+
+        save_config(&config, &self.config)
+    }
+}
+
+#[derive(Parser, Debug)]
+enum Command {
+    /// Creates an empty configuration file (if it doesn't already exist).
+    Init,
+
+    /// Sets the consumer key in the configuration file.
+    SetConsumerKey {
+        /// A consumer key obtained from Pocket's website.
+        /// You must create your own application
+        /// at https://getpocket.com/developer/apps/new
+        /// to obtain a consumer key;
+        /// I don't want you kicking me out of my own application! :)
+        /// Make sure your application has at least the "Add" permission.
+        key: String,
+    },
+
+    /// Obtains and saves an access token from Pocket.
+    /// This will print a URL on the standard output,
+    /// which you must open in a web browser
+    /// in order to grant your application access to your Pocket account.
+    /// Once authorization has been obtained,
+    /// an access token is saved in the configuration file,
+    /// which will be used to queue up entries in your Pocket list.
+    Login,
+
+    /// Adds a feed to your feeds configuration
+    /// or updates an existing feed in your feeds configuration.
+    Add(AddCommand),
+
+    /// Removes a feed from your feeds configuration.
+    Remove {
+        /// The URL of the feed to remove.
+        feed_url: String,
+    },
+}
+
+#[derive(Parser, Debug)]
+struct AddCommand {
+    /// Consider all the entries in the feed to be unread.
+    /// All entries will be sent to Pocket immediately.
+    /// By default, all the entries present when the feed is added
+    /// are considered read and are not sent to Pocket.
+    #[clap(long)]
+    unread: bool,
+
+    /// A comma-separated list of tags to attach to the URLs sent to Pocket.
+    #[clap(long)]
+    tags: Option<String>,
+
+    /// The URL of the feed to add.
+    feed_url: String,
 }
 
 #[derive(Default, Deserialize, Serialize)]

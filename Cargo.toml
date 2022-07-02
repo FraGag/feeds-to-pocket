@@ -12,7 +12,7 @@ exclude = [".travis.yml"]
 
 [dependencies]
 atom_syndication = "0.6.0"
-clap = "2.34.0"
+clap = { version = "3.2.8", features = ["derive"] }
 quick-error = "1.2.3"
 reqwest = "0.9.24"
 rss = "1.10.0"
