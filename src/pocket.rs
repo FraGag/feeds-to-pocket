@@ -161,7 +161,7 @@ impl Pocket {
     }
 
     fn request<Req: Serialize>(&self, url: &str, request: &Req) -> PocketResult<String> {
-        let request = try!(serde_json::to_string(request));
+        let request = serde_json::to_string(request)?;
 
         let app_json = "application/json";
 

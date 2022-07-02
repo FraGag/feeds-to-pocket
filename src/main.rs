@@ -144,17 +144,17 @@ fn run(args: &ArgMatches) -> Result<(), ErrorWithContext> {
     if args.subcommand_name() == Some(subcommands::init::NAME) {
         init(args)
     } else {
-        let mut config = try!(load_config(args));
+        let mut config = load_config(args)?;
 
         // Dispatch based on the subcommand
-        try!(match args.subcommand() {
+        match args.subcommand() {
             ("", _) => sync(&mut config),
             (subcommands::set_consumer_key::NAME, Some(args)) => Ok(set_consumer_key(&mut config, &args)),
             (subcommands::login::NAME, _) => login(&mut config),
             (subcommands::add::NAME, Some(args)) => add(&mut config, &args),
             (subcommands::remove::NAME, Some(args)) => remove(&mut config, &args),
             (_, _) => unreachable!(),
-        });
+        }?;
 
         save_config(&config, args)
     }
@@ -217,7 +217,7 @@ fn save_config(config: &Configuration, args: &ArgMatches) -> Result<(), ErrorWit
     }
 
     // Rename the original configuration file.
-    try!(rename(config_file_name, old_config_file_name));
+    rename(config_file_name, old_config_file_name)?;
 
     // Rename the new configuration file.
     let rename_new_result = rename(new_config_file_name, config_file_name);
@@ -673,10 +673,10 @@ impl<'a: 'f, 'f> fmt::Write for IndentedWrite<'a, 'f> {
     fn write_str(&mut self, s: &str) -> Result<(), fmt::Error> {
         let mut lines = s.split('\n');
         if let Some(line) = lines.next() {
-            try!(self.0.write_str(line));
+            self.0.write_str(line)?;
             for line in lines {
-                try!(self.0.write_str("\n  "));
-                try!(self.0.write_str(line));
+                self.0.write_str("\n  ")?;
+                self.0.write_str(line)?;
             }
         }
 
