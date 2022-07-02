@@ -8,20 +8,6 @@
 
 #![allow(unknown_lints)]
 
-extern crate atom_syndication;
-#[macro_use]
-extern crate clap;
-#[macro_use]
-extern crate quick_error;
-extern crate reqwest;
-extern crate rss;
-#[macro_use]
-extern crate serde;
-extern crate serde_json;
-extern crate serde_yaml;
-extern crate url;
-extern crate url_serde;
-
 mod pocket;
 
 use std::error::Error;
@@ -32,9 +18,11 @@ use std::path::Path;
 use std::process;
 use std::str::FromStr;
 
-use clap::{App, Arg, ArgMatches, SubCommand};
+use clap::{crate_version, App, Arg, ArgMatches, SubCommand};
+use quick_error::quick_error;
 use reqwest::{Client, StatusCode};
 use reqwest::header::{self, HeaderValue};
+use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::pocket::Pocket;
