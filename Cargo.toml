@@ -2,6 +2,7 @@
 name = "feeds-to-pocket"
 version = "0.1.6"
 authors = ["Francis Gagné <fragag1@gmail.com>"]
+edition = "2021"
 description = "Sends items from your RSS and Atom feeds to your Pocket list."
 repository = "https://github.com/FraGag/feeds-to-pocket"
 readme = "README.md"
