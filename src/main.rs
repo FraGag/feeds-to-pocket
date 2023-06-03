@@ -18,8 +18,8 @@ use std::str::FromStr;
 
 use clap::Parser;
 use quick_error::quick_error;
-use reqwest::{Client, StatusCode};
 use reqwest::header::{self, HeaderValue};
+use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -36,7 +36,9 @@ fn main() {
 fn run(args: &Args) -> Result<(), ErrorWithContext> {
     match &args.command {
         Some(Command::Init) => init(&args.config),
-        Some(Command::SetConsumerKey { key }) => args.with_config(|config| Ok(set_consumer_key(config, key))),
+        Some(Command::SetConsumerKey { key }) => {
+            args.with_config(|config| Ok(set_consumer_key(config, key)))
+        }
         Some(Command::Login) => args.with_config(login),
         Some(Command::Add(cmd)) => args.with_config(|config| add(config, cmd)),
         Some(Command::Remove { feed_url }) => args.with_config(|config| remove(config, feed_url)),
@@ -45,19 +47,31 @@ fn run(args: &Args) -> Result<(), ErrorWithContext> {
 }
 
 macro_rules! try_with_context {
-    ($expr:expr, $context:expr) => (match $expr {
-        ::std::result::Result::Ok(val) => val,
-        ::std::result::Result::Err(err) => {
-            return ::std::result::Result::Err($crate::ErrorWithContext::new(::std::convert::From::from(err), $context))
+    ($expr:expr, $context:expr) => {
+        match $expr {
+            ::std::result::Result::Ok(val) => val,
+            ::std::result::Result::Err(err) => {
+                return ::std::result::Result::Err($crate::ErrorWithContext::new(
+                    ::std::convert::From::from(err),
+                    $context,
+                ))
+            }
         }
-    })
+    };
 }
 
 fn load_config(config_file_name: &Path) -> Result<Configuration, ErrorWithContext> {
-    let config_file = try_with_context!(File::open(config_file_name),
-        format!("failed to open file {}", config_file_name.to_string_lossy()));
-    let config = try_with_context!(serde_yaml::from_reader(config_file),
-        format!("failed to load configuration from {}", config_file_name.to_string_lossy()));
+    let config_file = try_with_context!(
+        File::open(config_file_name),
+        format!("failed to open file {}", config_file_name.to_string_lossy())
+    );
+    let config = try_with_context!(
+        serde_yaml::from_reader(config_file),
+        format!(
+            "failed to load configuration from {}",
+            config_file_name.to_string_lossy()
+        )
+    );
     Ok(config)
 }
 
@@ -81,20 +95,45 @@ fn save_config(config: &Configuration, config_file_name: &Path) -> Result<(), Er
     };
 
     // Copy the configuration file, to preserve permissions.
-    try_with_context!(fs::copy(config_file_name, new_config_file_name),
-        format!("failed to copy {} to {}", config_file_name.to_string_lossy(), new_config_file_name.to_string_lossy()));
+    try_with_context!(
+        fs::copy(config_file_name, new_config_file_name),
+        format!(
+            "failed to copy {} to {}",
+            config_file_name.to_string_lossy(),
+            new_config_file_name.to_string_lossy()
+        )
+    );
 
     // Write the updated configuration to the new configuration file.
     {
-        let mut config_file = try_with_context!(File::create(new_config_file_name),
-            format!("failed to create file {}", new_config_file_name.to_string_lossy()));
-        try_with_context!(serde_yaml::to_writer(&mut config_file, config),
-            format!("failed to save configuration to {}", new_config_file_name.to_string_lossy()));
+        let mut config_file = try_with_context!(
+            File::create(new_config_file_name),
+            format!(
+                "failed to create file {}",
+                new_config_file_name.to_string_lossy()
+            )
+        );
+        try_with_context!(
+            serde_yaml::to_writer(&mut config_file, config),
+            format!(
+                "failed to save configuration to {}",
+                new_config_file_name.to_string_lossy()
+            )
+        );
     }
 
-    fn rename<P: AsRef<Path> + Copy, Q: AsRef<Path> + Copy>(from: P, to: Q) -> Result<(), ErrorWithContext> {
-        Ok(try_with_context!(fs::rename(from, to),
-            format!("failed to rename {} to {}", from.as_ref().to_string_lossy(), to.as_ref().to_string_lossy())))
+    fn rename<P: AsRef<Path> + Copy, Q: AsRef<Path> + Copy>(
+        from: P,
+        to: Q,
+    ) -> Result<(), ErrorWithContext> {
+        Ok(try_with_context!(
+            fs::rename(from, to),
+            format!(
+                "failed to rename {} to {}",
+                from.as_ref().to_string_lossy(),
+                to.as_ref().to_string_lossy()
+            )
+        ))
     }
 
     // Rename the original configuration file.
@@ -107,14 +146,24 @@ fn save_config(config: &Configuration, config_file_name: &Path) -> Result<(), Er
         let rollback_rename_old_result = rename(old_config_file_name, config_file_name);
         match rollback_rename_old_result {
             Ok(_) => return rename_new_result,
-            Err(e) => try_with_context!(Err(Errors::new(vec![Box::new(rename_new_result.unwrap_err()), Box::new(e)])),
-                "failed to save configuration"),
+            Err(e) => try_with_context!(
+                Err(Errors::new(vec![
+                    Box::new(rename_new_result.unwrap_err()),
+                    Box::new(e)
+                ])),
+                "failed to save configuration"
+            ),
         }
     }
 
     // Delete the renamed original configuration file.
-    try_with_context!(fs::remove_file(old_config_file_name),
-        format!("failed to remove file {}", old_config_file_name.to_string_lossy()));
+    try_with_context!(
+        fs::remove_file(old_config_file_name),
+        format!(
+            "failed to remove file {}",
+            old_config_file_name.to_string_lossy()
+        )
+    );
 
     Ok(())
 }
@@ -122,12 +171,24 @@ fn save_config(config: &Configuration, config_file_name: &Path) -> Result<(), Er
 fn init(config_file_name: &Path) -> Result<(), ErrorWithContext> {
     // Only write a configuration file if it doesn't exist yet.
     let mut config_file = try_with_context!(
-        OpenOptions::new().write(true).create_new(true).open(config_file_name),
-        format!("failed to create file {}", config_file_name.to_string_lossy()));
+        OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(config_file_name),
+        format!(
+            "failed to create file {}",
+            config_file_name.to_string_lossy()
+        )
+    );
 
     let config = Configuration::default();
-    try_with_context!(serde_yaml::to_writer(&mut config_file, &config),
-        format!("failed to save configuration to {}", config_file_name.to_string_lossy()));
+    try_with_context!(
+        serde_yaml::to_writer(&mut config_file, &config),
+        format!(
+            "failed to save configuration to {}",
+            config_file_name.to_string_lossy()
+        )
+    );
 
     Ok(())
 }
@@ -138,20 +199,31 @@ fn set_consumer_key(config: &mut Configuration, key: &str) {
 
 fn login(config: &mut Configuration) -> Result<(), ErrorWithContext> {
     let client = Client::new();
-    let mut pocket = try_with_context!(get_pocket(config, client), "unable to perform authorization");
+    let mut pocket = try_with_context!(
+        get_pocket(config, client),
+        "unable to perform authorization"
+    );
 
     if config.access_token.is_some() {
-        println!("note: There's already an access token in the configuration file. \
-            Proceeding will overwrite this access token.");
+        println!(
+            "note: There's already an access token in the configuration file. \
+            Proceeding will overwrite this access token."
+        );
     }
 
-    let auth_url = try_with_context!(pocket.get_auth_url(), "unable to get authorization URL for Pocket");
+    let auth_url = try_with_context!(
+        pocket.get_auth_url(),
+        "unable to get authorization URL for Pocket"
+    );
     println!("Go to the following webpage to login: {}", auth_url);
     println!("Then, press Enter to continue.");
     loop {
         // Let the user authorize access to the application before proceeding.
         let mut _input = String::new();
-        try_with_context!(std::io::stdin().read_line(&mut _input), "unable to read from standard input");
+        try_with_context!(
+            std::io::stdin().read_line(&mut _input),
+            "unable to read from standard input"
+        );
 
         match pocket.authorize() {
             Ok(_) => {
@@ -159,9 +231,12 @@ fn login(config: &mut Configuration) -> Result<(), ErrorWithContext> {
                 return Ok(());
             }
             Err(e) => {
-                println!("Authorization failed: {}\n\
+                println!(
+                    "Authorization failed: {}\n\
                     Make sure you authorized your application at the webpage linked above.\n\
-                    Press Enter to try again, or press Ctrl+C to exit.", e);
+                    Press Enter to try again, or press Ctrl+C to exit.",
+                    e
+                );
             }
         }
     }
@@ -169,7 +244,10 @@ fn login(config: &mut Configuration) -> Result<(), ErrorWithContext> {
 
 fn sync(config: &mut Configuration) -> Result<(), ErrorWithContext> {
     let client = Client::new();
-    let mut pocket = try_with_context!(get_authenticated_pocket(config, client.clone()), "unable to sync");
+    let mut pocket = try_with_context!(
+        get_authenticated_pocket(config, client.clone()),
+        "unable to sync"
+    );
 
     for feed in &mut config.feeds {
         process_feed(feed, Some(&mut pocket), &client).unwrap_or_else(|e| {
@@ -197,7 +275,10 @@ fn add(config: &mut Configuration, args: &AddCommand) -> Result<(), ErrorWithCon
 
     let send_to_pocket = args.unread;
     let mut pocket = if send_to_pocket {
-        Some(try_with_context!(get_authenticated_pocket(config, client.clone()), "unable to add feed"))
+        Some(try_with_context!(
+            get_authenticated_pocket(config, client.clone()),
+            "unable to add feed"
+        ))
     } else {
         None
     };
@@ -222,7 +303,10 @@ fn remove(config: &mut Configuration, feed_url: &str) -> Result<(), ErrorWithCon
     config.feeds.retain(|feed| feed.url != feed_url);
     let len_after = config.feeds.len();
     if len_before == len_after {
-        try_with_context!(Err(FeedNotFound::FeedNotFound(feed_url.into())), "failed to remove feed");
+        try_with_context!(
+            Err(FeedNotFound::FeedNotFound(feed_url.into())),
+            "failed to remove feed"
+        );
     }
 
     Ok(())
@@ -230,44 +314,72 @@ fn remove(config: &mut Configuration, feed_url: &str) -> Result<(), ErrorWithCon
 
 fn get_pocket(config: &Configuration, client: Client) -> Result<Pocket, PocketSetupError> {
     match config.consumer_key {
-        Some(ref consumer_key) => Ok(Pocket::new(consumer_key, config.access_token.as_ref().map(|x| x.as_ref()), client)),
+        Some(ref consumer_key) => Ok(Pocket::new(
+            consumer_key,
+            config.access_token.as_ref().map(|x| x.as_ref()),
+            client,
+        )),
         None => Err(PocketSetupError::MissingConsumerKey),
     }
 }
 
-fn get_authenticated_pocket(config: &Configuration, client: Client) -> Result<Pocket, PocketSetupError> {
-    get_pocket(config, client).and_then(|pocket| {
-        match config.access_token {
-            Some(_) => Ok(pocket),
-            None => Err(PocketSetupError::MissingAccessToken),
-        }
+fn get_authenticated_pocket(
+    config: &Configuration,
+    client: Client,
+) -> Result<Pocket, PocketSetupError> {
+    get_pocket(config, client).and_then(|pocket| match config.access_token {
+        Some(_) => Ok(pocket),
+        None => Err(PocketSetupError::MissingAccessToken),
     })
 }
 
-fn process_feed(feed: &mut FeedConfiguration, mut pocket: Option<&mut Pocket>, client: &Client) -> Result<(), ErrorWithContext> {
+fn process_feed(
+    feed: &mut FeedConfiguration,
+    mut pocket: Option<&mut Pocket>,
+    client: &Client,
+) -> Result<(), ErrorWithContext> {
     println!("downloading {}", feed.url);
-    let feed_response = try_with_context!(fetch(feed, client),
-        format!("failed to download feed at {url}", url=feed.url));
+    let feed_response = try_with_context!(
+        fetch(feed, client),
+        format!("failed to download feed at {url}", url = feed.url)
+    );
 
     // Do nothing if we received a 304 Not Modified response.
-    if let FeedResponse::Success { body, last_modified, e_tag } = feed_response {
-        let parsed_feed = try_with_context!(body.parse::<Feed>(),
-            format!("failed to parse feed at {url} as either RSS or Atom", url=feed.url));
+    if let FeedResponse::Success {
+        body,
+        last_modified,
+        e_tag,
+    } = feed_response
+    {
+        let parsed_feed = try_with_context!(
+            body.parse::<Feed>(),
+            format!(
+                "failed to parse feed at {url} as either RSS or Atom",
+                url = feed.url
+            )
+        );
 
         let (mut rss_entries, mut atom_entries);
-        let entries: &mut dyn Iterator<Item=&str> = match parsed_feed {
+        let entries: &mut dyn Iterator<Item = &str> = match parsed_feed {
             Feed::RSS(ref rss) => {
                 rss_entries = rss.items().iter().rev().flat_map(|item| item.link());
                 &mut rss_entries
             }
             Feed::Atom(ref atom) => {
-                atom_entries = atom.entries().into_iter().rev().flat_map(|entry| entry.links()).filter_map(|link| {
-                    match link.rel() {
-                        // Only push links with an "alternate" relation type.
-                        "alternate" | "http://www.iana.org/assignments/relation/alternate" => Some(link.href()),
-                        _ => None,
-                    }
-                });
+                atom_entries = atom
+                    .entries()
+                    .into_iter()
+                    .rev()
+                    .flat_map(|entry| entry.links())
+                    .filter_map(|link| {
+                        match link.rel() {
+                            // Only push links with an "alternate" relation type.
+                            "alternate" | "http://www.iana.org/assignments/relation/alternate" => {
+                                Some(link.href())
+                            }
+                            _ => None,
+                        }
+                    });
                 &mut atom_entries
             }
         };
@@ -280,39 +392,45 @@ fn process_feed(feed: &mut FeedConfiguration, mut pocket: Option<&mut Pocket>, c
 
             // Ignore entries we've processed previously.
             if !feed.processed_entries.iter().rev().any(|x| x == &entry_url) {
-                let is_processed =
-                    if let Some(ref mut pocket) = pocket {
-                        match Url::parse(&entry_url) {
-                            Ok(parsed_entry_url) => {
-                                // Push the entry to Pocket.
-                                // Only consider the entry processed if the push succeeded.
-                                // That means that if it failed, we'll try again next time.
-                                println!("pushing {} to Pocket", entry_url);
-                                let tags = if feed.tags.is_empty() { None } else { Some(&*feed.tags) };
-                                let push_result = pocket.add(&parsed_entry_url, None, tags, None);
-                                match push_result {
-                                    Ok(_) => true,
-                                    Err(error) => {
-                                        println!("error while adding URL {url} to Pocket:\n  {error}",
-                                            url=entry_url, error=Indented(&error));
-                                        false
-                                    }
+                let is_processed = if let Some(ref mut pocket) = pocket {
+                    match Url::parse(&entry_url) {
+                        Ok(parsed_entry_url) => {
+                            // Push the entry to Pocket.
+                            // Only consider the entry processed if the push succeeded.
+                            // That means that if it failed, we'll try again next time.
+                            println!("pushing {} to Pocket", entry_url);
+                            let tags = if feed.tags.is_empty() {
+                                None
+                            } else {
+                                Some(&*feed.tags)
+                            };
+                            let push_result = pocket.add(&parsed_entry_url, None, tags, None);
+                            match push_result {
+                                Ok(_) => true,
+                                Err(error) => {
+                                    println!(
+                                        "error while adding URL {url} to Pocket:\n  {error}",
+                                        url = entry_url,
+                                        error = Indented(&error)
+                                    );
+                                    false
                                 }
                             }
-                            Err(e) => {
-                                println!("'{}' is not a valid URL ({}). ignoring.", entry_url, e);
-
-                                // Mark the entry as processed,
-                                // to avoid noise in subsequent runs.
-                                true
-                            }
                         }
-                    } else {
-                        // If `pocket` is None,
-                        // then we just want to mark the current feed entries as processed,
-                        // on the assumption that the user has read them already.
-                        true
-                    };
+                        Err(e) => {
+                            println!("'{}' is not a valid URL ({}). ignoring.", entry_url, e);
+
+                            // Mark the entry as processed,
+                            // to avoid noise in subsequent runs.
+                            true
+                        }
+                    }
+                } else {
+                    // If `pocket` is None,
+                    // then we just want to mark the current feed entries as processed,
+                    // on the assumption that the user has read them already.
+                    true
+                };
 
                 if is_processed {
                     // Remember that we've processed this entry
@@ -338,34 +456,52 @@ fn process_feed(feed: &mut FeedConfiguration, mut pocket: Option<&mut Pocket>, c
 
 fn fetch(feed: &FeedConfiguration, client: &Client) -> Result<FeedResponse, ErrorWithContext> {
     let mut request = client.get(&feed.url);
-    request = request.header(header::USER_AGENT, HeaderValue::from_static(concat!("feeds-to-pocket/", env!("CARGO_PKG_VERSION"))));
+    request = request.header(
+        header::USER_AGENT,
+        HeaderValue::from_static(concat!("feeds-to-pocket/", env!("CARGO_PKG_VERSION"))),
+    );
 
     // Add an If-Modified-Since header if we have a Last-Modified date.
     if let Some(ref last_modified) = feed.last_modified {
-        request = request.header(header::IF_MODIFIED_SINCE, HeaderValue::from_str(last_modified).expect("Failed to convert last_modified to HeaderValue"));
+        request = request.header(
+            header::IF_MODIFIED_SINCE,
+            HeaderValue::from_str(last_modified)
+                .expect("Failed to convert last_modified to HeaderValue"),
+        );
     }
 
     // Add an If-None-Match header if we have an ETag.
     if let Some(ref e_tag) = feed.last_e_tag {
-        request = request.header(header::IF_NONE_MATCH, HeaderValue::from_str(e_tag).expect("Failed to convert last_e_tag to HeaderValue"));
+        request = request.header(
+            header::IF_NONE_MATCH,
+            HeaderValue::from_str(e_tag).expect("Failed to convert last_e_tag to HeaderValue"),
+        );
     }
 
-    let mut response = try_with_context!(request.send(),
-        "failed to send request");
+    let mut response = try_with_context!(request.send(), "failed to send request");
     if response.status() == StatusCode::NOT_MODIFIED {
         Ok(FeedResponse::NotModified)
     } else {
         if !response.status().is_success() {
-            try_with_context!(Err(UnacceptableHttpStatus::UnacceptableHttpStatus(response.status())),
-                format!("the HTTP request to <{}> didn't return a success status", feed.url));
+            try_with_context!(
+                Err(UnacceptableHttpStatus::UnacceptableHttpStatus(
+                    response.status()
+                )),
+                format!(
+                    "the HTTP request to <{}> didn't return a success status",
+                    feed.url
+                )
+            );
         }
 
         let last_modified = response.headers().get(header::LAST_MODIFIED).cloned();
         let e_tag = response.headers().get(header::ETAG).cloned();
 
         let mut body = String::new();
-        try_with_context!(response.read_to_string(&mut body),
-            "failed to read response");
+        try_with_context!(
+            response.read_to_string(&mut body),
+            "failed to read response"
+        );
 
         Ok(FeedResponse::Success {
             body: body,
@@ -456,11 +592,11 @@ struct AddCommand {
 
 #[derive(Default, Deserialize, Serialize)]
 struct Configuration {
-    #[serde(skip_serializing_if="Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     consumer_key: Option<String>,
-    #[serde(skip_serializing_if="Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     access_token: Option<String>,
-    #[serde(skip_serializing_if="Vec::is_empty")]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     #[serde(default)]
     feeds: Vec<FeedConfiguration>,
 }
@@ -468,15 +604,15 @@ struct Configuration {
 #[derive(Deserialize, Serialize)]
 struct FeedConfiguration {
     url: String,
-    #[serde(skip_serializing_if="str::is_empty")]
+    #[serde(skip_serializing_if = "str::is_empty")]
     #[serde(default)]
     tags: String,
-    #[serde(skip_serializing_if="Vec::is_empty")]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     #[serde(default)]
     processed_entries: Vec<String>,
-    #[serde(skip_serializing_if="Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     last_modified: Option<String>,
-    #[serde(skip_serializing_if="Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     last_e_tag: Option<String>,
 }
 
@@ -502,8 +638,11 @@ impl FromStr for Feed {
             Ok(feed) => Ok(Feed::Atom(feed)),
             Err(atom_error) => match s.parse::<rss::Channel>() {
                 Ok(channel) => Ok(Feed::RSS(channel)),
-                Err(rss_error) => Err(FeedError { atom_error, rss_error })
-            }
+                Err(rss_error) => Err(FeedError {
+                    atom_error,
+                    rss_error,
+                }),
+            },
         }
     }
 }
@@ -530,7 +669,7 @@ impl Error for FeedError {
 #[derive(Debug)]
 struct ErrorWithContext {
     error: Box<dyn Error>,
-    context: String
+    context: String,
 }
 
 impl ErrorWithContext {

@@ -19,15 +19,15 @@
 //    but they're also presumably broken,
 //    and I didn't feel like fixing and testing them.
 
-use std::error::Error;
 use std::convert::From;
+use std::error::Error;
 use std::fmt;
 use std::io::Error as IoError;
 use std::io::Read;
 use std::result::Result;
 
-use reqwest::{Client, Error as HttpError};
 use reqwest::header::{self, HeaderValue};
+use reqwest::{Client, Error as HttpError};
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json;
 use url::Url;
@@ -38,7 +38,7 @@ pub enum PocketError {
     Http(HttpError),
     Io(IoError),
     SerdeJson(serde_json::Error),
-    Proto(String, String)
+    Proto(String, String),
 }
 
 pub type PocketResult<T> = Result<T, PocketError>;
@@ -67,7 +67,7 @@ impl Error for PocketError {
             PocketError::Http(ref e) => Some(e),
             PocketError::Io(ref e) => Some(e),
             PocketError::SerdeJson(ref e) => Some(e),
-            PocketError::Proto(..) => None
+            PocketError::Proto(..) => None,
         }
     }
 }
@@ -78,7 +78,9 @@ impl fmt::Display for PocketError {
             PocketError::Http(ref e) => e.fmt(fmt),
             PocketError::Io(ref e) => e.fmt(fmt),
             PocketError::SerdeJson(ref e) => e.fmt(fmt),
-            PocketError::Proto(ref code, ref msg) => fmt.write_str(&format!("{} (code {})", msg, code))
+            PocketError::Proto(ref code, ref msg) => {
+                fmt.write_str(&format!("{} (code {})", msg, code))
+            }
         }
     }
 }
@@ -156,16 +158,23 @@ impl Pocket {
 
         let app_json = "application/json";
 
-        self.client.post(url)
+        self.client
+            .post(url)
             .header(X_ACCEPT, HeaderValue::from_static(app_json))
             .header(header::CONTENT_TYPE, HeaderValue::from_static(app_json))
             .body(request)
-            .send().map_err(From::from)
+            .send()
+            .map_err(From::from)
             .and_then(|mut r| {
                 if let Some(code) = r.headers().get(X_ERROR_CODE) {
                     return Err(PocketError::Proto(
-                        code.to_str().expect("X-Error-Code is not well-formed UTF-8").into(),
-                        r.headers().get(X_ERROR).map(|v| v.to_str().expect("X-Error is not well-formed UTF-8").into()).unwrap_or("unknown protocol error".into()),
+                        code.to_str()
+                            .expect("X-Error-Code is not well-formed UTF-8")
+                            .into(),
+                        r.headers()
+                            .get(X_ERROR)
+                            .map(|v| v.to_str().expect("X-Error is not well-formed UTF-8").into())
+                            .unwrap_or("unknown protocol error".into()),
                     ));
                 }
 
@@ -179,41 +188,55 @@ impl Pocket {
         // because on some terminals (e.g. Konsole),
         // the period is excluded from the URL
         // when you Ctrl+click it.
-        const REDIRECT_URI: &'static str = "data:text/plain,Return%20to%20feeds-to-pocket%20and%20press%20Enter%20to%20finish%2E";
+        const REDIRECT_URI: &'static str =
+            "data:text/plain,Return%20to%20feeds-to-pocket%20and%20press%20Enter%20to%20finish%2E";
 
-        let response = { // scope to release borrow on self
+        let response = {
+            // scope to release borrow on self
             let request = PocketOAuthRequest {
                 consumer_key: &self.consumer_key,
                 redirect_uri: REDIRECT_URI,
-                state: None
+                state: None,
             };
 
             self.request("https://getpocket.com/v3/oauth/request", &request)
         };
 
-        response.and_then(|r| r.decode()).and_then(|r: PocketOAuthResponse| {
-            let mut url = Url::parse("https://getpocket.com/auth/authorize").unwrap();
-            url.query_pairs_mut().append_pair("request_token", &r.code).append_pair("redirect_uri", REDIRECT_URI);
-            self.code = Some(r.code);
-            Ok(url)
-        })
+        response
+            .and_then(|r| r.decode())
+            .and_then(|r: PocketOAuthResponse| {
+                let mut url = Url::parse("https://getpocket.com/auth/authorize").unwrap();
+                url.query_pairs_mut()
+                    .append_pair("request_token", &r.code)
+                    .append_pair("redirect_uri", REDIRECT_URI);
+                self.code = Some(r.code);
+                Ok(url)
+            })
     }
 
     pub fn authorize(&mut self) -> PocketResult<String> {
         {
             let request = PocketAuthorizeRequest {
                 consumer_key: &self.consumer_key,
-                code: self.code.as_ref().map(|v| &*v).unwrap()
+                code: self.code.as_ref().map(|v| &*v).unwrap(),
             };
 
             self.request("https://getpocket.com/v3/oauth/authorize", &request)
-        }.and_then(|r| r.decode()).and_then(|r: PocketAuthorizeResponse| {
+        }
+        .and_then(|r| r.decode())
+        .and_then(|r: PocketAuthorizeResponse| {
             self.access_token = Some(r.access_token);
             Ok(r.username)
         })
     }
 
-    pub fn add(&mut self, url: &Url, title: Option<&str>, tags: Option<&str>, tweet_id: Option<&str>) -> PocketResult<()> {
+    pub fn add(
+        &mut self,
+        url: &Url,
+        title: Option<&str>,
+        tags: Option<&str>,
+        tweet_id: Option<&str>,
+    ) -> PocketResult<()> {
         let request = PocketAddRequest {
             consumer_key: &self.consumer_key,
             access_token: self.access_token.as_ref().unwrap(),
@@ -223,7 +246,8 @@ impl Pocket {
             tweet_id: tweet_id,
         };
 
-        self.request("https://getpocket.com/v3/add", &request).map(|_| ())
+        self.request("https://getpocket.com/v3/add", &request)
+            .map(|_| ())
     }
 }
 
