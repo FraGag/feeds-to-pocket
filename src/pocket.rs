@@ -31,7 +31,7 @@ use reqwest::{
     header::{self, HeaderValue},
     Error as HttpError,
 };
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 use url::Url;
 
 #[derive(Debug)]
@@ -125,18 +125,10 @@ pub struct PocketAuthorizeResponse {
 pub struct PocketAddRequest<'a> {
     consumer_key: &'a str,
     access_token: &'a str,
-    #[serde(serialize_with = "serialize_url_ref")]
     url: &'a Url,
     title: Option<&'a str>,
     tags: Option<&'a str>,
     tweet_id: Option<&'a str>,
-}
-
-fn serialize_url_ref<S>(value: &&Url, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    url_serde::serialize(*value, serializer)
 }
 
 impl Pocket {
