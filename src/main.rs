@@ -702,10 +702,10 @@ quick_error! {
     #[derive(Debug)]
     enum PocketSetupError {
         MissingConsumerKey {
-            description("The consumer key is not set in the configuration file. Run `feeds-to-pocket help set-consumer-key` for help and instructions.")
+            display("The consumer key is not set in the configuration file. Run `feeds-to-pocket help set-consumer-key` for help and instructions.")
         }
         MissingAccessToken {
-            description("The access token is not set in the configuration file. Run `feeds-to-pocket help login` for help and instructions.")
+            display("The access token is not set in the configuration file. Run `feeds-to-pocket help login` for help and instructions.")
         }
     }
 }
@@ -723,7 +723,6 @@ quick_error! {
     #[derive(Debug)]
     enum Errors {
         Errors(errors: Vec<Box<dyn Error>>) {
-            description("Multiple errors occurred.")
             display("{}", errors.iter().map(|error| format!("- {}", Indented(error))).collect::<Vec<_>>().join("\n"))
         }
     }
