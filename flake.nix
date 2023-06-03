@@ -18,7 +18,7 @@
           src = ./.;
 
           nativeBuildInputs = with pkgs; [ pkg-config ];
-          buildInputs = with pkgs; [ openssl_1_1 ];
+          buildInputs = with pkgs; [ openssl_3 ];
 
           singleStep = devMode;
         };
