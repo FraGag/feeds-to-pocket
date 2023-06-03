@@ -14,7 +14,7 @@ exclude = [".travis.yml"]
 atom_syndication = "0.6.0"
 clap = { version = "4.3.1", features = ["derive"] }
 quick-error = "1.2.3"
-reqwest = "0.9.24"
+reqwest = { version = "0.11.18", features = ["blocking"] }
 rss = "1.10.0"
 serde = { version = "1.0.163", features = ["derive"] }
 serde_json = "1.0.96"

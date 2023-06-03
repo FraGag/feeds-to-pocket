@@ -19,7 +19,7 @@ use std::str::FromStr;
 use clap::Parser;
 use quick_error::quick_error;
 use reqwest::header::{self, HeaderValue};
-use reqwest::{Client, StatusCode};
+use reqwest::{blocking::Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use url::Url;
 

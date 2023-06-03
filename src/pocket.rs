@@ -26,8 +26,11 @@ use std::io::Error as IoError;
 use std::io::Read;
 use std::result::Result;
 
-use reqwest::header::{self, HeaderValue};
-use reqwest::{Client, Error as HttpError};
+use reqwest::{
+    blocking::Client,
+    header::{self, HeaderValue},
+    Error as HttpError,
+};
 use serde::{Deserialize, Serialize, Serializer};
 use url::Url;
 
