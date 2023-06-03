@@ -29,9 +29,7 @@ use std::result::Result;
 use reqwest::header::{self, HeaderValue};
 use reqwest::{Client, Error as HttpError};
 use serde::{Deserialize, Serialize, Serializer};
-use serde_json;
 use url::Url;
-use url_serde;
 
 #[derive(Debug)]
 pub enum PocketError {
@@ -144,13 +142,13 @@ impl Pocket {
             consumer_key: consumer_key.to_string(),
             access_token: access_token.map(|v| v.to_string()),
             code: None,
-            client: client,
+            client,
         }
     }
 
     #[inline]
     pub fn access_token(&self) -> Option<&str> {
-        self.access_token.as_ref().map(|v| &**v)
+        self.access_token.as_deref()
     }
 
     fn request<Req: Serialize>(&self, url: &str, request: &Req) -> PocketResult<String> {
@@ -188,7 +186,7 @@ impl Pocket {
         // because on some terminals (e.g. Konsole),
         // the period is excluded from the URL
         // when you Ctrl+click it.
-        const REDIRECT_URI: &'static str =
+        const REDIRECT_URI: &str =
             "data:text/plain,Return%20to%20feeds-to-pocket%20and%20press%20Enter%20to%20finish%2E";
 
         let response = {
@@ -204,13 +202,13 @@ impl Pocket {
 
         response
             .and_then(|r| r.decode())
-            .and_then(|r: PocketOAuthResponse| {
+            .map(|r: PocketOAuthResponse| {
                 let mut url = Url::parse("https://getpocket.com/auth/authorize").unwrap();
                 url.query_pairs_mut()
                     .append_pair("request_token", &r.code)
                     .append_pair("redirect_uri", REDIRECT_URI);
                 self.code = Some(r.code);
-                Ok(url)
+                url
             })
     }
 
@@ -218,15 +216,15 @@ impl Pocket {
         {
             let request = PocketAuthorizeRequest {
                 consumer_key: &self.consumer_key,
-                code: self.code.as_ref().map(|v| &*v).unwrap(),
+                code: self.code.as_deref().unwrap(),
             };
 
             self.request("https://getpocket.com/v3/oauth/authorize", &request)
         }
         .and_then(|r| r.decode())
-        .and_then(|r: PocketAuthorizeResponse| {
+        .map(|r: PocketAuthorizeResponse| {
             self.access_token = Some(r.access_token);
-            Ok(r.username)
+            r.username
         })
     }
 
@@ -240,10 +238,10 @@ impl Pocket {
         let request = PocketAddRequest {
             consumer_key: &self.consumer_key,
             access_token: self.access_token.as_ref().unwrap(),
-            url: url,
-            title: title,
-            tags: tags,
-            tweet_id: tweet_id,
+            url,
+            title,
+            tags,
+            tweet_id,
         };
 
         self.request("https://getpocket.com/v3/add", &request)

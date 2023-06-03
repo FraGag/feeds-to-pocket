@@ -36,9 +36,10 @@ fn main() {
 fn run(args: &Args) -> Result<(), ErrorWithContext> {
     match &args.command {
         Some(Command::Init) => init(&args.config),
-        Some(Command::SetConsumerKey { key }) => {
-            args.with_config(|config| Ok(set_consumer_key(config, key)))
-        }
+        Some(Command::SetConsumerKey { key }) => args.with_config(|config| {
+            set_consumer_key(config, key);
+            Ok(())
+        }),
         Some(Command::Login) => args.with_config(login),
         Some(Command::Add(cmd)) => args.with_config(|config| add(config, cmd)),
         Some(Command::Remove { feed_url }) => args.with_config(|config| remove(config, feed_url)),
@@ -361,14 +362,14 @@ fn process_feed(
 
         let (mut rss_entries, mut atom_entries);
         let entries: &mut dyn Iterator<Item = &str> = match parsed_feed {
-            Feed::RSS(ref rss) => {
+            Feed::Rss(ref rss) => {
                 rss_entries = rss.items().iter().rev().flat_map(|item| item.link());
                 &mut rss_entries
             }
             Feed::Atom(ref atom) => {
                 atom_entries = atom
                     .entries()
-                    .into_iter()
+                    .iter()
                     .rev()
                     .flat_map(|entry| entry.links())
                     .filter_map(|link| {
@@ -391,9 +392,9 @@ fn process_feed(
             let entry_url = entry_url.trim();
 
             // Ignore entries we've processed previously.
-            if !feed.processed_entries.iter().rev().any(|x| x == &entry_url) {
+            if !feed.processed_entries.iter().rev().any(|x| x == entry_url) {
                 let is_processed = if let Some(ref mut pocket) = pocket {
-                    match Url::parse(&entry_url) {
+                    match Url::parse(entry_url) {
                         Ok(parsed_entry_url) => {
                             // Push the entry to Pocket.
                             // Only consider the entry processed if the push succeeded.
@@ -504,9 +505,9 @@ fn fetch(feed: &FeedConfiguration, client: &Client) -> Result<FeedResponse, Erro
         );
 
         Ok(FeedResponse::Success {
-            body: body,
-            last_modified: last_modified,
-            e_tag: e_tag,
+            body,
+            last_modified,
+            e_tag,
         })
     }
 }
@@ -626,8 +627,8 @@ enum FeedResponse {
 }
 
 enum Feed {
-    Atom(atom_syndication::Feed),
-    RSS(rss::Channel),
+    Atom(Box<atom_syndication::Feed>),
+    Rss(Box<rss::Channel>),
 }
 
 impl FromStr for Feed {
@@ -635,9 +636,9 @@ impl FromStr for Feed {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.parse::<atom_syndication::Feed>() {
-            Ok(feed) => Ok(Feed::Atom(feed)),
+            Ok(feed) => Ok(Feed::Atom(Box::new(feed))),
             Err(atom_error) => match s.parse::<rss::Channel>() {
-                Ok(channel) => Ok(Feed::RSS(channel)),
+                Ok(channel) => Ok(Feed::Rss(Box::new(channel))),
                 Err(rss_error) => Err(FeedError {
                     atom_error,
                     rss_error,
@@ -675,7 +676,7 @@ struct ErrorWithContext {
 impl ErrorWithContext {
     fn new<S: Into<String>>(error: Box<dyn Error>, context: S) -> ErrorWithContext {
         ErrorWithContext {
-            error: error,
+            error,
             context: context.into(),
         }
     }
