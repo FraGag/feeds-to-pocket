@@ -2,9 +2,7 @@
   inputs = {
     flake-utils.url = "github:numtide/flake-utils";
     naersk.url = "github:nix-community/naersk";
-    #nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    # Last commit in nixpkgs-unstable before 8ed6a3e6bb54580e8ef5ac44dd9006ea69bcdbeb, which marked openssl_1_1 as nearing EOL.
-    nixpkgs.url = "github:NixOS/nixpkgs?rev=8ed6a3e6bb54580e8ef5ac44dd9006ea69bcdbeb";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
   };
 
   outputs = { self, flake-utils, naersk, nixpkgs }:
