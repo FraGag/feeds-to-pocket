@@ -2,7 +2,8 @@
 
 ## 0.1.7 - 2023-06-03
 
-- Fix incorrect instructions in README.md (PR #5)
+- Fix incorrect instructions in README.md
+  (PR [#5](https://github.com/FraGag/feeds-to-pocket/pull/5))
 - Update dependencies
 - General code cleanup
 
@@ -10,7 +11,7 @@
 
 - Update dependencies, enabling support for OpenSSL 1.1.1
 - Add the 'remove' subcommand to remove a feed from a configuration file
-  (issue #2)
+  (issue [#2](https://github.com/FraGag/feeds-to-pocket/issues/2))
 
 ## 0.1.5 - 2017-12-10
 
