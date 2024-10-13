@@ -218,12 +218,7 @@ impl Pocket {
     }
 
     pub fn get_auth_url(&mut self) -> PocketResult<Url> {
-        // The final period is encoded as %2E
-        // because on some terminals (e.g. Konsole),
-        // the period is excluded from the URL
-        // when you Ctrl+click it.
-        const REDIRECT_URI: &str =
-            "data:text/plain,Return%20to%20feeds-to-pocket%20and%20press%20Enter%20to%20finish%2E";
+        const REDIRECT_URI: &str = "https://fragag.github.io/feeds-to-pocket/login-successful";
 
         let response = {
             // scope to release borrow on self
