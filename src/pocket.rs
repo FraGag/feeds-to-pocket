@@ -88,7 +88,7 @@ impl fmt::Display for PocketError {
 
 const X_ACCEPT: &str = "X-Accept";
 const X_ERROR: &str = "X-Error";
-const X_ERROR_CODE: &str = "X-ErrorCode";
+const X_ERROR_CODE: &str = "X-Error-Code";
 
 pub struct Pocket {
     consumer_key: String,
