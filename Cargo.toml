@@ -1,6 +1,6 @@
 [package]
 name = "feeds-to-pocket"
-version = "0.1.8-pre"
+version = "0.1.8"
 authors = ["Francis Gagné <fragag1@gmail.com>"]
 edition = "2021"
 description = "Sends items from your RSS and Atom feeds to your Pocket list."
