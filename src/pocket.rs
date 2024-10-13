@@ -36,10 +36,15 @@ use url::Url;
 
 #[derive(Debug)]
 pub enum PocketError {
-    Http(HttpError),
+    Http(HttpError, Option<String>),
     Io(IoError),
     SerdeJson(serde_json::Error),
-    Proto(String, String),
+    Proto(String, String, Option<String>),
+}
+
+struct HttpErrorWithBody {
+    http_error: HttpError,
+    body: Option<String>,
 }
 
 pub type PocketResult<T> = Result<T, PocketError>;
@@ -58,16 +63,22 @@ impl From<IoError> for PocketError {
 
 impl From<HttpError> for PocketError {
     fn from(err: HttpError) -> PocketError {
-        PocketError::Http(err)
+        PocketError::Http(err, None)
+    }
+}
+
+impl From<HttpErrorWithBody> for PocketError {
+    fn from(err: HttpErrorWithBody) -> PocketError {
+        PocketError::Http(err.http_error, err.body)
     }
 }
 
 impl Error for PocketError {
     fn cause(&self) -> Option<&dyn Error> {
-        match *self {
-            PocketError::Http(ref e) => Some(e),
-            PocketError::Io(ref e) => Some(e),
-            PocketError::SerdeJson(ref e) => Some(e),
+        match self {
+            PocketError::Http(e, _) => Some(e),
+            PocketError::Io(e) => Some(e),
+            PocketError::SerdeJson(e) => Some(e),
             PocketError::Proto(..) => None,
         }
     }
@@ -75,12 +86,24 @@ impl Error for PocketError {
 
 impl fmt::Display for PocketError {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        match *self {
-            PocketError::Http(ref e) => e.fmt(fmt),
-            PocketError::Io(ref e) => e.fmt(fmt),
-            PocketError::SerdeJson(ref e) => e.fmt(fmt),
-            PocketError::Proto(ref code, ref msg) => {
-                fmt.write_str(&format!("{} (code {})", msg, code))
+        match self {
+            PocketError::Http(e, body) => {
+                e.fmt(fmt)?;
+                if let Some(body) = body {
+                    writeln!(fmt)?;
+                    body.fmt(fmt)?;
+                }
+                Ok(())
+            }
+            PocketError::Io(e) => e.fmt(fmt),
+            PocketError::SerdeJson(e) => e.fmt(fmt),
+            PocketError::Proto(code, msg, body) => {
+                write!(fmt, "{} (code {})", msg, code)?;
+                if let Some(body) = body {
+                    writeln!(fmt)?;
+                    body.fmt(fmt)?;
+                }
+                Ok(())
             }
         }
     }
@@ -159,6 +182,12 @@ impl Pocket {
             .send()
             .map_err(From::from)
             .and_then(|mut r| {
+                let mut body = String::new();
+                let body = r
+                    .read_to_string(&mut body)
+                    .map_err(From::from)
+                    .map(|_| body);
+
                 if let Some(code) = r.headers().get(X_ERROR_CODE) {
                     return Err(PocketError::Proto(
                         code.to_str()
@@ -168,11 +197,19 @@ impl Pocket {
                             .get(X_ERROR)
                             .map(|v| v.to_str().expect("X-Error is not well-formed UTF-8").into())
                             .unwrap_or("unknown protocol error".into()),
+                        body.ok(),
                     ));
                 }
 
-                let mut out = String::new();
-                r.read_to_string(&mut out).map_err(From::from).map(|_| out)
+                if !r.status().is_success() {
+                    r.error_for_status()
+                        .map_err(|http_error| HttpErrorWithBody {
+                            http_error,
+                            body: body.as_ref().ok().cloned(),
+                        })?;
+                }
+
+                body
             })
     }
 
