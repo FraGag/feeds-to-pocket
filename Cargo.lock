@@ -302,7 +302,7 @@ dependencies = [
 
 [[package]]
 name = "feeds-to-pocket"
-version = "0.1.7"
+version = "0.1.8-pre"
 dependencies = [
  "atom_syndication",
  "clap",
