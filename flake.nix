@@ -3,6 +3,8 @@
     flake-utils.url = "github:numtide/flake-utils";
     naersk.url = "github:nix-community/naersk";
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+
+    naersk.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   outputs = { self, flake-utils, naersk, nixpkgs }:
