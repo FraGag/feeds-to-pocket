@@ -124,6 +124,7 @@ pub struct Pocket {
 pub struct PocketOAuthRequest<'a> {
     consumer_key: &'a str,
     redirect_uri: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
     state: Option<&'a str>,
 }
 
@@ -149,8 +150,11 @@ pub struct PocketAddRequest<'a> {
     consumer_key: &'a str,
     access_token: &'a str,
     url: &'a Url,
+    #[serde(skip_serializing_if = "Option::is_none")]
     title: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     tags: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     tweet_id: Option<&'a str>,
 }
 
