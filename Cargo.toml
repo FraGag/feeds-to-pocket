@@ -11,12 +11,12 @@ license = "MIT/Apache-2.0"
 exclude = [".envrc", ".github", "flake.lock", "flake.nix"]
 
 [dependencies]
-atom_syndication = "0.12.4"
-clap = { version = "4.5.20", features = ["derive"] }
+atom_syndication = "0.12.5"
+clap = { version = "4.5.22", features = ["derive"] }
 quick-error = "2.0.1"
-reqwest = { version = "0.12.8", features = ["blocking"] }
-rss = "2.0.9"
-serde = { version = "1.0.210", features = ["derive"] }
-serde_json = "1.0.128"
+reqwest = { version = "0.12.9", features = ["blocking"] }
+rss = "2.0.11"
+serde = { version = "1.0.215", features = ["derive"] }
+serde_json = "1.0.133"
 serde_yaml = "0.9.34"
-url = { version = "2.5.2", features = ["serde"] }
+url = { version = "2.5.4", features = ["serde"] }
