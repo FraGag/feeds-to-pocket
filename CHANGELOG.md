@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.8 - 2024-10-13
+
+- Fix the HTTP header name X-Error-Code
+- Improve error detection and reporting
+- Fix pushes not working anymore by not sending `null` for the `title` field
+  (fixes [#8](https://github.com/FraGag/feeds-to-pocket/issues/8))
+- login: Replace the data: redirect URI with an https: one
+  (fixes [#7](https://github.com/FraGag/feeds-to-pocket/issues/7))
+- Update dependencies
+
 ## 0.1.7 - 2023-06-03
 
 - Fix incorrect instructions in README.md
