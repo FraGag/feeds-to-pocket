@@ -1,9 +1,13 @@
 # Feeds to Pocket
 
+> **:warning: Pocket was [shut down][pocket-has-shut-down] on November 12, 2025.
+> Therefore, this application is no longer functional.**
+
 <b>Feeds to Pocket</b> watches your RSS and Atom feeds
 and pushes new items to your [Pocket][pocket] list.
 
 [pocket]: https://getpocket.com/
+[pocket-has-shut-down]: https://support.mozilla.org/en-US/kb/future-of-pocket
 
 ## License
 
